@@ -1,4 +1,4 @@
-//! Interface-only SCOS MIB viewer. Operations panic until implemented.
+//! Read-only SCOS MIB snapshots. Parameter lookup is implemented; other views are pending.
 #![allow(dead_code)] // Declarations are intentionally unused until implementation tickets.
 mod catalog;
 pub mod model;
@@ -27,23 +27,37 @@ pub enum LoadError {
     },
 }
 impl std::fmt::Display for LoadError {
-    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        todo!("issue #8: load error formatting contract only")
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InaccessibleDirectory { directory, cause } => write!(
+                f,
+                "cannot read MIB directory {}: {cause}",
+                directory.display()
+            ),
+            Self::NoUsableSupportedRows { directory } => {
+                write!(f, "no usable supported rows in {}", directory.display())
+            }
+        }
     }
 }
 impl std::error::Error for LoadError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        todo!("issue #8: expose underlying I/O cause")
+        match self {
+            Self::InaccessibleDirectory { cause, .. } => Some(cause),
+            Self::NoUsableSupportedRows { .. } => None,
+        }
     }
 }
 impl Mib {
     /// Reads supported rows once. Missing support files allow partial results.
-    pub fn load(_directory: &Path) -> Result<Self, LoadError> {
-        todo!("interface only")
+    pub fn load(directory: &Path) -> Result<Self, LoadError> {
+        Ok(Self {
+            catalog: catalog::Catalog::new(reader::load(directory)?),
+        })
     }
     /// Case-sensitive identity; duplicate root rows return Ambiguous.
-    pub fn parameter(&self, _name: &ParameterName) -> Lookup<ParameterDescription> {
-        todo!("interface only")
+    pub fn parameter(&self, name: &ParameterName) -> Lookup<ParameterDescription> {
+        self.catalog.parameter(name)
     }
     pub fn packet(&self, _spid: PacketSpid) -> Lookup<PacketDescription> {
         todo!("interface only")

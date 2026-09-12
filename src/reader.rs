@@ -1,4 +1,4 @@
-//! Private typed rows. No parsing or schema detection is implemented.
+//! Private typed rows and shared loading. Table families are added in their owning slices.
 use crate::{LoadError, model::*};
 use std::{io, path::Path};
 
@@ -315,6 +315,435 @@ pub(crate) struct Pcpc {
     pub code: Info<String>,
 }
 
-pub(crate) fn load(_directory: &Path) -> Result<Records, LoadError> {
-    todo!("interface only")
+pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
+    std::fs::read_dir(directory).map_err(|cause| LoadError::InaccessibleDirectory {
+        directory: directory.to_owned(),
+        cause,
+    })?;
+    let pcf = read_table(directory, "pcf.dat", parse_pcf);
+    let caf = read_table(directory, "caf.dat", parse_caf);
+    if pcf.rows().is_empty() && caf.rows().is_empty() {
+        return Err(LoadError::NoUsableSupportedRows {
+            directory: directory.to_owned(),
+        });
+    }
+    Ok(Records {
+        pcf,
+        pid: TableLoad::Missing,
+        tpcf: TableLoad::Missing,
+        pic: TableLoad::Missing,
+        plf: TableLoad::Missing,
+        vpd: TableLoad::Missing,
+        cur: TableLoad::Missing,
+        caf,
+        cap: TableLoad::Missing,
+        mcf: TableLoad::Missing,
+        lgf: TableLoad::Missing,
+        txf: TableLoad::Missing,
+        txp: TableLoad::Missing,
+        ccf: TableLoad::Missing,
+        cdf: TableLoad::Missing,
+        cpc: TableLoad::Missing,
+        cca: TableLoad::Missing,
+        ccs: TableLoad::Missing,
+        paf: TableLoad::Missing,
+        pas: TableLoad::Missing,
+        prf: TableLoad::Missing,
+        prv: TableLoad::Missing,
+        tcp: TableLoad::Missing,
+        pcdf: TableLoad::Missing,
+        pcpc: TableLoad::Missing,
+    })
+}
+
+impl<T> TableLoad<T> {
+    pub(crate) fn rows(&self) -> &[Row<T>] {
+        match self {
+            Self::Read { rows } => rows,
+            _ => &[],
+        }
+    }
+}
+
+fn read_table<T>(
+    directory: &Path,
+    file: &str,
+    parse: fn(&str, Source) -> Result<Row<T>, String>,
+) -> TableLoad<T> {
+    let bytes = match std::fs::read(directory.join(file)) {
+        Ok(bytes) => bytes,
+        Err(cause) => {
+            tracing::debug!(file, reason = %cause, "skipped file");
+            return if cause.kind() == io::ErrorKind::NotFound {
+                TableLoad::Missing
+            } else {
+                TableLoad::Unreadable(cause)
+            };
+        }
+    };
+    let mut rows = Vec::new();
+    for (index, bytes) in bytes.split(|b| *b == b'\n').enumerate() {
+        if bytes.is_empty() && index > 0 {
+            continue;
+        }
+        let source = Source {
+            file: file.into(),
+            line: (index + 1).try_into().unwrap(),
+        };
+        let text = std::str::from_utf8(bytes).map(|s| s.strip_suffix('\r').unwrap_or(s));
+        let parsed = match text {
+            Ok(text) => parse(text, source),
+            Err(e) => Err(e.to_string()),
+        };
+        match parsed {
+            Ok(row) => rows.push(row),
+            Err(reason) => {
+                tracing::debug!(file, line = index + 1, %reason, original = %String::from_utf8_lossy(bytes), "dropped row")
+            }
+        }
+    }
+    tracing::debug!(file, retained = rows.len(), "loaded table");
+    TableLoad::Read { rows }
+}
+
+#[derive(Clone, Copy)]
+enum CellType {
+    Text,
+    Integer,
+    Code(&'static str),
+}
+struct Column {
+    name: &'static str,
+    kind: CellType,
+    required: bool,
+    default: Option<&'static str>,
+}
+use CellType::{Code, Integer, Text};
+const PCF: &[Column] = &[
+    Column {
+        name: "PCF_NAME",
+        kind: Text,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PCF_DESCR",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_PID",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_UNIT",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_PTC",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PCF_PFC",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PCF_WIDTH",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_VALID",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_RELATED",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_CATEG",
+        kind: Code("NST"),
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PCF_NATUR",
+        kind: Code("RDPHSC"),
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PCF_CURTX",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_INTER",
+        kind: Code("PF"),
+        required: false,
+        default: Some("F"),
+    },
+    Column {
+        name: "PCF_USCON",
+        kind: Code("YN"),
+        required: false,
+        default: Some("N"),
+    },
+    Column {
+        name: "PCF_DECIM",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_PARVAL",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_SUBSYS",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_VALPAR",
+        kind: Integer,
+        required: false,
+        default: Some("1"),
+    },
+    Column {
+        name: "PCF_SPTYPE",
+        kind: Code("ER"),
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_CORR",
+        kind: Code("YN"),
+        required: false,
+        default: Some("Y"),
+    },
+    Column {
+        name: "PCF_OBTID",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PCF_DARC",
+        kind: Code("01"),
+        required: false,
+        default: Some("0"),
+    },
+    Column {
+        name: "PCF_ENDIAN",
+        kind: Code("BL"),
+        required: false,
+        default: Some("B"),
+    },
+    Column {
+        name: "PCF_DESCR2",
+        kind: Text,
+        required: false,
+        default: Some(""),
+    },
+];
+
+fn parse_definition(text: &str, source: Source, schema: &[Column]) -> Result<Definition, String> {
+    let cells: Vec<_> = text.split('\t').collect();
+    if cells.len() > schema.len() {
+        tracing::debug!(file = %source.file.display(), line = source.line.get(), extra = cells.len() - schema.len(), "ignored extra columns");
+    }
+    let mut fields = Vec::with_capacity(schema.len());
+    for (index, column) in schema.iter().enumerate() {
+        let recorded = cells.get(index).copied();
+        let presence = match recorded {
+            None => Presence::Omitted,
+            Some("") => Presence::Empty,
+            Some(s) => Presence::Text(s.to_owned()),
+        };
+        let value = recorded.filter(|s| !s.is_empty()).or(column.default);
+        if column.required && value.is_none() {
+            return Err(format!("{} is required", column.name));
+        }
+        let interpretation = value
+            .map(|s| {
+                let value = match column.kind {
+                    Text => Scalar::Text(s.to_owned()),
+                    Integer => Scalar::Integer(
+                        s.parse()
+                            .map_err(|_| format!("{}: invalid integer {s:?}", column.name))?,
+                    ),
+                    Code(allowed) if s.len() == 1 && allowed.contains(s) => {
+                        Scalar::Code(s.to_owned())
+                    }
+                    Code(_) => return Err(format!("{}: invalid code {s:?}", column.name)),
+                };
+                let origin = if recorded.is_some_and(|s| !s.is_empty()) {
+                    InterpretationOrigin::Recorded
+                } else {
+                    InterpretationOrigin::DocumentedDefault {
+                        rule: format!("{} defaults to {s:?} when omitted or empty", column.name),
+                    }
+                };
+                Ok(Interpretation { value, origin })
+            })
+            .transpose()?;
+        fields.push(RecordedField {
+            column: (index + 1).try_into().unwrap(),
+            presence,
+            meanings: vec![FieldMeaning {
+                schema_name: column.name.into(),
+                interpretation: Info {
+                    value: interpretation,
+                    problems: vec![],
+                    sources: vec![source.clone()],
+                },
+            }],
+        });
+    }
+    Ok(Definition { source, fields })
+}
+
+fn cell<T>(
+    definition: &Definition,
+    index: usize,
+    convert: impl FnOnce(&Scalar) -> Option<T>,
+) -> Info<T> {
+    let interpretation = &definition.fields[index].meanings[0].interpretation;
+    Info {
+        value: interpretation
+            .value
+            .as_ref()
+            .and_then(|i| convert(&i.value)),
+        problems: interpretation.problems.clone(),
+        sources: interpretation.sources.clone(),
+    }
+}
+fn text_cell(definition: &Definition, index: usize) -> Info<String> {
+    cell(definition, index, |s| match s {
+        Scalar::Text(s) | Scalar::Code(s) => Some(s.clone()),
+        _ => None,
+    })
+}
+fn integer_cell(definition: &Definition, index: usize) -> Info<i64> {
+    cell(definition, index, |s| match s {
+        Scalar::Integer(n) => Some(*n),
+        _ => None,
+    })
+}
+fn parse_pcf(text: &str, source: Source) -> Result<Row<Pcf>, String> {
+    let definition = parse_definition(text, source, PCF)?;
+    let cells = Pcf {
+        name: cell(&definition, 0, |s| match s {
+            Scalar::Text(s) => Some(ParameterName(s.clone())),
+            _ => None,
+        }),
+        descr: text_cell(&definition, 1),
+        pid: integer_cell(&definition, 2),
+        unit: text_cell(&definition, 3),
+        ptc: integer_cell(&definition, 4),
+        pfc: integer_cell(&definition, 5),
+        width: integer_cell(&definition, 6),
+        valid: text_cell(&definition, 7),
+        related: text_cell(&definition, 8),
+        categ: text_cell(&definition, 9),
+        natur: text_cell(&definition, 10),
+        curtx: text_cell(&definition, 11),
+        r#inter: text_cell(&definition, 12),
+        uscon: text_cell(&definition, 13),
+        decim: integer_cell(&definition, 14),
+        parval: text_cell(&definition, 15),
+        subsys: text_cell(&definition, 16),
+        valpar: integer_cell(&definition, 17),
+        sptype: text_cell(&definition, 18),
+        corr: text_cell(&definition, 19),
+        obtid: integer_cell(&definition, 20),
+        darc: text_cell(&definition, 21),
+        endian: text_cell(&definition, 22),
+        descr2: text_cell(&definition, 23),
+    };
+    Ok(Row { definition, cells })
+}
+
+const CAF: &[Column] = &[
+    Column {
+        name: "CAF_NUMBR",
+        kind: Text,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "CAF_DESCR",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "CAF_ENGFMT",
+        kind: Code("RIU"),
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "CAF_RAWFMT",
+        kind: Code("RIU"),
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "CAF_RADIX",
+        kind: Code("DHO"),
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "CAF_UNIT",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "CAF_NCURVE",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "CAF_INTER",
+        kind: Code("PF"),
+        required: false,
+        default: Some("F"),
+    },
+];
+fn parse_caf(text: &str, source: Source) -> Result<Row<Caf>, String> {
+    let definition = parse_definition(text, source, CAF)?;
+    let cells = Caf {
+        numbr: text_cell(&definition, 0),
+        descr: text_cell(&definition, 1),
+        engfmt: text_cell(&definition, 2),
+        rawfmt: text_cell(&definition, 3),
+        radix: text_cell(&definition, 4),
+        unit: text_cell(&definition, 5),
+        ncurve: integer_cell(&definition, 6),
+        r#inter: text_cell(&definition, 7),
+    };
+    Ok(Row { definition, cells })
 }

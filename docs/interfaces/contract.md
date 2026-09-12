@@ -1,9 +1,10 @@
 # MIB viewer interface contract
 
-Status: ready for maintainer review, acceptance pending. Issue #8 remains open.
-This contract declares interfaces only. Library operations panic with explicit
-placeholders; the CLI exits 2 with an unimplemented message. No parsing, joins,
-search, rendering, or behavioral tests are implemented.
+Status: accepted by the maintainer at commit `ef6ea86`; issue #8 is closed.
+[Acceptance record](https://github.com/edwardhutchinson/mibl/issues/8#issuecomment-5648856740).
+The complete interface set remains the contract for the implementation slices.
+Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
+Packet, command and search operations remain explicit placeholders.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -157,13 +158,34 @@ behavioral tests belong in this ticket. Later implementation tickets supply
 fixtures for variable structures and repeated fixed occurrences absent from the
 sample. Full ICD conformance has not been established.
 
-Maintainer acceptance: **pending**. Review this file, schema.md, all src declarations
-and the compile-only example as one set. Record the accepted commit and explicit
-maintainer approval here or in issue #8 before closing the issue. Acceptance of
-issues #4–#6 does not accept this concrete interface set.
+Maintainer acceptance: recorded in issue #8 for the complete set in commit
+`ef6ea86`, including this file, schema.md, all src declarations and the compile-only
+example.
 
 Agent review completed against starting commit
 `762f80e06093aaec0f81c8b54a2459164e9d7aa1` with separate standards and spec reviewers.
 Standards: no documented violations or actionable smells. Spec: no findings;
-explicit maintainer acceptance remains outstanding. These reviews do not replace
-maintainer acceptance.
+maintainer acceptance was subsequently recorded in issue #8.
+
+## Issue #9 implementation coverage
+
+The reader loads PCF and the CAF headers needed for the supporting-only exchange.
+It validates established numeric and coded fields, preserves field presence and
+unambiguous defaults, and retains PCF_DESCR2 at column 24. There is no conflicting
+PCF column interpretation. CPC ambiguity and additional table families are deferred
+to their owning slices. The existing typed reader contracts remain unchanged.
+
+The catalog indexes retained PCF rows by case-sensitive name, preserving every
+duplicate. Parameter results include the definition, units, PTC/PFC, endian and
+static encoded width where known from ICD 7.0 Appendix A. Unknown widths retain
+original codes and an UnsupportedInterpretation problem. PCF_WIDTH is never used
+as an encoded width. Unexpanded calibrations and occurrences also explicitly
+report UnsupportedInterpretation until their owning slices implement the joins.
+Recorded references remain available even when their targets are missing.
+
+Cross-check: PCF rows produce owned ParameterSummary fields; CAF rows make the
+supporting-only load possible; catalog root counts distinguish both absence
+reasons; the CLI consumes Found, Ambiguous and NotFound through public Mib calls.
+Source locations and interpreted defaults reach the field renderer unchanged.
+Library events reach only the application-owned tracing subscriber. Public Mib
+and CLI process tests cover these exchanges using synthetic temporary files.
