@@ -32,7 +32,7 @@ pub enum Lookup<T> {
     Ambiguous(AtLeastTwo<Candidate>),
 }
 /// Two required elements make empty/singleton ambiguity unrepresentable.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AtLeastTwo<T> {
     pub first: Box<T>,
     pub second: Box<T>,
@@ -53,19 +53,19 @@ pub struct Candidate {
 }
 /// None means no usable interpretation, not necessarily absent recorded text.
 /// A usable value and problems may coexist; nested fields remain independent.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Info<T> {
     pub value: Option<T>,
     pub problems: Vec<Problem>,
     pub sources: Vec<Source>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Presence {
     Omitted,
     Empty,
     Text(String),
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Scalar {
     Text(String),
     Integer(i64),
@@ -74,34 +74,34 @@ pub enum Scalar {
     Boolean(bool),
     Code(String),
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum InterpretationOrigin {
     Recorded,
     DocumentedDefault { rule: String },
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Interpretation {
     pub value: Scalar,
     pub origin: InterpretationOrigin,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct FieldMeaning {
     pub schema_name: String,
     pub interpretation: Info<Interpretation>,
 }
 /// Ordered by physical, one-based schema column. Ambiguous columns have multiple meanings.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RecordedField {
     pub column: NonZeroUsize,
     pub presence: Presence,
     pub meanings: Vec<FieldMeaning>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Definition {
     pub source: Source,
     pub fields: Vec<RecordedField>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Reference {
     Root(Identity),
     Supporting { table: Table, key: String },
@@ -135,23 +135,23 @@ pub enum Table {
     Pcdf,
     Pcpc,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Target {
     pub reference: Reference,
     pub definition: Definition,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Dependency {
     pub reference: Reference,
     pub targets: Info<Vec<Target>>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeDeclaration {
     pub expression: String,
     pub dependencies: Vec<Dependency>,
     pub sources: Vec<Source>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ProblemKind {
     MissingReference {
         reference: Reference,
@@ -173,7 +173,7 @@ pub enum ProblemKind {
         declaration: RuntimeDeclaration,
     },
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Problem {
     pub kind: ProblemKind,
     pub sources: Vec<Source>,

@@ -9,13 +9,34 @@ MIB_DIR=/path/to/mib cargo run -- parameter TEMP
 MIB_DIR=/path/to/mib cargo run -- --debug parameter TEMP
 ```
 
-The CLI shows recorded PCF fields, original field presence, interpreted defaults,
-PTC/PFC encoding, units and source locations. Packet details include identification
-criteria and fixed parameter occurrences. Parameter details list containing packets
-in numeric SPID order. Fixed repetitions retain each occurrence and its bit stride. Duplicate definitions produce a
-candidate table. A missing name exits silently with status 1. Configuration and
-loading errors print to stderr and exit with status 2. `--debug` enables loading
-and lookup events on stderr.
+The CLI defaults to a compact overview with encoding, identification, aligned
+occurrence tables and all returned problems. Add `--details` for recorded fields,
+empty and omitted presence, documented default rules and problem evidence:
+
+```sh
+MIB_DIR=/path/to/mib cargo run -- --details parameter TEMP
+MIB_DIR=/path/to/mib cargo run -- --debug --details packet 89000
+```
+
+Syntax is `mibl [--debug] [--details] parameter NAME` or
+`mibl [--debug] [--details] packet SPID`. Each flag is allowed once, in either
+order before the verb. `--debug` enables loading and lookup events on stderr
+without changing stdout. There are no short aliases or flags after the verb.
+
+Details print each reachable definition once, with stable IDs and references
+for its uses. Packet details include parameter descriptions and units. Parameter
+views list containing packets in numeric SPID order. Fixed repetitions retain
+each expanded occurrence and its bit stride. Values derived from documented
+defaults carry a `[default]` suffix in the overview.
+
+Tables use spaces aligned by Unicode display width. Printable text is preserved
+in full, controls are escaped, and output is identical on terminals and when
+redirected. There is no wrapping, truncation, color or pager.
+
+Duplicate roots produce a candidate table in either mode and exit with status 0.
+Found results with local problems also exit with status 0. Missing identities
+exit silently with status 1 outside debug mode. Configuration, loading and output
+errors print to stderr and exit with status 2.
 
 The library takes an explicit path and returns owned descriptions:
 
