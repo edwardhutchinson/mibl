@@ -23,7 +23,7 @@ Local reference files and example MIB remain unpublished.
 | Reader → catalog::new | owned Records | owned Catalog, no relationship error return | rows retain duplicates; schema interpretations separate from original fields | two PCF rows under one name create two root index entries |
 | Catalog → Mib | immutable typed lookup/search arguments | owned Lookup descriptions / Vec<Candidate> | no borrowing from snapshot, no silent target selection | duplicate identity gives AtLeastTwo candidates |
 | Mib → CLI query | immutable snapshot and Request | typed Response | CLI imports public library only | packet SPID goes to packet, never a fuzzy lookup |
-| CLI query → render | borrowed Response, output writer | ExitCode or io::Error | details for Found; plain candidate table for ambiguity/search | both NotFound reasons emit no bytes and exit 1 |
+| CLI query → render | borrowed Response, output writer | ExitCode or io::Error | overview for Found, complete recorded details with --details per #19; plain candidate table for ambiguity/search | both NotFound reasons emit no bytes and exit 1 |
 | CLI errors → report_error | CliError, stderr writer | status 2 | visible independently of tracing | unset MIB_DIR reports configuration error |
 | Library tracing facade → CLI subscriber | debug/info events | stderr when enabled | no saved diagnostics or logging handle; debug off cannot break unmatched silence | dropped row event has relative file, line, reason, original text |
 
@@ -225,3 +225,41 @@ parameter result, with an inconsistent-definition problem containing both rows.
 The packet result continues to mark its variable layout unsupported. Parameter
 occurrence collections also carry an unsupported-interpretation problem when the
 snapshot contains variable PID definitions, because VPD containment is not loaded.
+
+## Issue #19 CLI presentation amendment
+
+The maintainer accepted option A and its presentation rules on 2026-09-13 with
+"I accept option A" after reviewing the examples in commit `ad3f7c9`.
+The [accepted output decision](../design/cli-output.md) defines the examples,
+section order, labels, tables, problem evidence and reusable conventions.
+Issue #20 implements this amendment; existing rendering remains in place until
+that ticket ships.
+
+`mibl [--debug] [--details] parameter NAME` and
+`mibl [--debug] [--details] packet SPID` use overview output by default.
+Each flag may occur once, in either order before the verb. No short aliases,
+flags after the verb or explicit overview flag are accepted. `--debug` remains
+independent stderr diagnostics and does not change result verbosity.
+
+Overview shows identity, description, root source, encoding/units for parameters,
+identification for packets, and occurrence tables. Every reachable public-result
+problem remains visible with its affected context, including problems in recorded
+field interpretations. Known values survive alongside problems; unavailable
+information never becomes zero or a falsely empty collection.
+
+`--details` includes the overview followed by problem evidence and definitions,
+omitting the overview's details advice. It preserves every reachable recorded
+field, presence, interpretation, documented-default rule, source, reference and
+alternative. Supporting definitions print once per table/source line with stable
+references to each use. No recursive lookup is introduced.
+
+This intentionally supersedes the full-details default in the original contract
+and the issue #9/#10 rendering coverage above. Their recorded-field and supporting
+provenance guarantees now apply to details mode; root provenance remains in the
+overview. Reader, catalog and public library information are unchanged.
+
+Use aligned spaces, full untruncated printable text and escaped controls, with
+no renderer wrapping, colors, pager or terminal detection. Redirected and terminal
+stdout are identical. Exact lookup, duplicate candidates, status-1 silent misses,
+status-0 found/ambiguous results, visible status-2 errors and --debug behavior
+retain their accepted semantics. Future rendering tickets follow these conventions.

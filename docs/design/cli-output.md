@@ -1,9 +1,11 @@
-# CLI output alternatives
+# CLI output decision
 
-Status: awaiting maintainer decision for [#19](https://github.com/edwardhutchinson/mibl/issues/19).
-These are proposals, not an amendment to the accepted interface contract.
-No renderer behavior or CLI flags have changed. All identities, descriptions,
-values and source locations below are invented and publishable.
+Status: option A accepted by the maintainer on 2026-09-13 for
+[#19](https://github.com/edwardhutchinson/mibl/issues/19).
+Option A and the shared rules below are the accepted presentation contract.
+Option B is retained only as a rejected alternative. Renderer changes belong to
+[#20](https://github.com/edwardhutchinson/mibl/issues/20); the current CLI does not
+yet accept `--details`. All example data is invented and publishable.
 
 ## Cases to compare
 
@@ -21,12 +23,12 @@ Both disable PI2. Both alternatives remain evidence; neither wins.
 The DEMO_MODE parameter view exposes the containing packet's problems, but does
 not expand unrelated DEMO_UNKNOWN or DEMO_DUP occurrences.
 
-Examples show proposed presentation of current library information. They do not
+Examples show the accepted presentation of current library information. They do not
 claim that unsupported calibration or variable-layout joins are implemented.
 
 ## A: overview by default, evidence on request
 
-Proposed syntax: `mibl [--debug] [--details] parameter NAME` or
+Accepted syntax: `mibl [--debug] [--details] parameter NAME` or
 `mibl [--debug] [--details] packet SPID`. Each flag may occur once, in either
 order before the verb. No short alias, flags after the verb, or explicit overview
 flag. Without `--details`, show the overview. `--debug` independently controls
@@ -194,7 +196,7 @@ useful names, encoding, locations and problems to the overview without repeating
 their complete records. Packet layout parameter descriptions and units appear
 in details as a parameter summary before that parameter's recorded fields.
 
-## B: one complete report, with evidence beside each use
+## B: rejected alternative, one complete report
 
 No verbosity modes or new syntax. Existing `--debug` remains diagnostic only.
 Keep full details in every successful lookup, but group them by subject. Every
@@ -313,7 +315,7 @@ B shows every recorded field, omitted/empty distinction, documented default rule
 provenance and alternative beside the relevant value. Use A's field vocabulary
 without definition IDs. No data truncation or omitted repeated records is allowed.
 
-## Comparison and recommendation
+## Comparison and decision
 
 | Decision | A | B |
 |---|---|---|
@@ -325,11 +327,11 @@ without definition IDs. No data truncation or omitted repeated records is allowe
 | Cost to inspect raw data | Rerun with --details | Scroll within one report |
 | Contract impact | Intentionally relax default full-details requirement | Preserve full-details default |
 
-I recommend A because packet locations remain easy to scan when parameters repeat.
+The maintainer selected A. Packet locations remain easy to scan when parameters repeat.
 B is useful if inspecting original MIB cells is the usual task and rerunning the
-query is undesirable. Neither choice is accepted yet.
+query is undesirable. It was not selected.
 
-## Shared proposed rules
+## Shared accepted rules
 
 - Preserve exact case-sensitive parameter lookup and unsigned numeric SPID lookup.
   Duplicate roots still produce every candidate in a plain aligned table with
@@ -381,43 +383,34 @@ Long-text check for #20: use an identity longer than 100 characters, a descripti
 longer than 200, printable non-ASCII text and embedded controls. Verify all text
 survives, controls are escaped, and redirection does not change formatting.
 
-## Proposed contract amendment and implementation handoff
+## Contract amendment and implementation handoff
 
-If A is accepted, amend the CLI query → render row of
-[contract.md](../interfaces/contract.md) to specify overview by default and complete
-recorded details through `--details`. Qualify the issue #9 and #10 coverage text
-where it says the CLI renders recorded fields and provenance: that guarantee
-moves to details mode; root source remains in overview. Update README and CLI
-usage in #20 when the behavior ships. Library descriptions, retained definitions,
-problem payloads and information ownership remain unchanged.
+The [interface contract](../interfaces/contract.md#issue-19-cli-presentation-amendment)
+now specifies overview by default and complete recorded details through
+`--details`. This intentionally moves the full recorded-field and supporting
+provenance guarantee from default output to details mode. Root source remains
+in the overview. Library descriptions, retained definitions, problem payloads
+and information ownership remain unchanged.
 
-If B is accepted, record the grouped presentation and unchanged complete default
-in the contract. No new flag or information-reduction amendment is needed.
-
-After explicit acceptance, replace #20's dependency brief with these concrete
-requirements and a link to the accepted document commit:
-
-1. Implement the selected section order, labels, field and occurrence presentation.
-2. Implement exactly the chosen modes and parser syntax, or explicitly no modes.
-3. Preserve all problems, known values, evidence and candidate alternatives using
-   the chosen access path. Retain public-library information unchanged.
-4. Apply the chosen support-record reuse rule to both lookup directions without
-   recursively loading or querying new relationships.
-5. Add synthetic CLI process checks for these normal and problematic cases, each
-   mode, duplicate roots, misses, errors, controls, long text and redirection.
-   Validate field evidence against the current public model rather than treating
-   abbreviated comparison excerpts as complete golden output.
-6. Update README/usage, run cargo check, clippy and the full suite, and link the
-   implementation to workflow verification #18. Later renderer features stay in
-   their owning tickets.
+Issue #20 implements option A, including its syntax, overview examples, details
+rules, support-record reuse and shared accepted rules above. It must add synthetic
+CLI process checks for normal and problematic cases in both modes, duplicate
+roots, misses, errors, controls, long text and redirection. Validate field evidence
+against the public model; abbreviated excerpts are not complete golden output.
+Update README and usage when the behavior ships, run cargo check, clippy and the
+full suite, and link the implementation to workflow verification #18. Formatting
+later calibration, variable packet and command views stays in their own tickets.
 
 ## Acceptance record
 
-Pending. The maintainer must select A, B or a concrete revision, confirm syntax,
-problem visibility, evidence access and width rules, and explicitly accept the
-resulting examples. Record their response and accepted commit here, cross-check
-and amend the contract, then update #20. Do not mark #19 complete or #20 ready
-before that response. No choice has been made on the maintainer's behalf.
+On 2026-09-13 the maintainer replied in the implementation session:
+"I accept option A".
+
+This accepts option A and its documented presentation rules as reviewed in commit
+`ad3f7c9`, including CLI syntax, default problem visibility, details evidence access
+and width rules. The preceding assistant request explicitly asked for acceptance
+of option A and those rules. Option B is not accepted. Issue #19 records this
+decision and #20 carries the implementation requirements.
 
 ## Draft validation
 
