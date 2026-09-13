@@ -202,6 +202,8 @@ pub struct ParameterDescription {
 }
 #[derive(Clone, Debug)]
 pub struct PacketSummary {
+    /// All matching TPCF definitions in source order, including duplicates.
+    pub characteristics: Info<Vec<Definition>>,
     pub spid: PacketSpid,
     pub name: Info<String>,
     pub description: Info<String>,
@@ -271,6 +273,8 @@ pub struct IdentificationCriterion {
 }
 #[derive(Clone, Debug)]
 pub struct PacketIdentification {
+    /// Matching PIC rows, including definitions that disable additional criteria.
+    pub definitions: Vec<Definition>,
     pub apid: Info<u32>,
     pub service_type: Info<u16>,
     pub service_subtype: Info<u16>,

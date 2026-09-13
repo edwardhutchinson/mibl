@@ -1,4 +1,4 @@
-//! Read-only SCOS MIB snapshots. Parameter lookup is implemented; other views are pending.
+//! Read-only SCOS MIB snapshots. Parameter and fixed packet lookups are implemented.
 #![allow(dead_code)] // Declarations are intentionally unused until implementation tickets.
 mod catalog;
 pub mod model;
@@ -59,8 +59,8 @@ impl Mib {
     pub fn parameter(&self, name: &ParameterName) -> Lookup<ParameterDescription> {
         self.catalog.parameter(name)
     }
-    pub fn packet(&self, _spid: PacketSpid) -> Lookup<PacketDescription> {
-        todo!("interface only")
+    pub fn packet(&self, spid: PacketSpid) -> Lookup<PacketDescription> {
+        self.catalog.packet(spid)
     }
     pub fn command(&self, _name: &CommandName) -> Lookup<CommandDescription> {
         todo!("interface only")

@@ -322,17 +322,27 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
     })?;
     let pcf = read_table(directory, "pcf.dat", parse_pcf);
     let caf = read_table(directory, "caf.dat", parse_caf);
-    if pcf.rows().is_empty() && caf.rows().is_empty() {
+    let pid = read_table(directory, "pid.dat", parse_pid);
+    let tpcf = read_table(directory, "tpcf.dat", parse_tpcf);
+    let pic = read_table(directory, "pic.dat", parse_pic);
+    let plf = read_table(directory, "plf.dat", parse_plf);
+    if pcf.rows().is_empty()
+        && caf.rows().is_empty()
+        && pid.rows().is_empty()
+        && tpcf.rows().is_empty()
+        && pic.rows().is_empty()
+        && plf.rows().is_empty()
+    {
         return Err(LoadError::NoUsableSupportedRows {
             directory: directory.to_owned(),
         });
     }
     Ok(Records {
         pcf,
-        pid: TableLoad::Missing,
-        tpcf: TableLoad::Missing,
-        pic: TableLoad::Missing,
-        plf: TableLoad::Missing,
+        pid,
+        tpcf,
+        pic,
+        plf,
         vpd: TableLoad::Missing,
         cur: TableLoad::Missing,
         caf,
@@ -744,6 +754,295 @@ fn parse_caf(text: &str, source: Source) -> Result<Row<Caf>, String> {
         unit: text_cell(&definition, 5),
         ncurve: integer_cell(&definition, 6),
         r#inter: text_cell(&definition, 7),
+    };
+    Ok(Row { definition, cells })
+}
+
+const PID: &[Column] = &[
+    Column {
+        name: "PID_TYPE",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PID_STYPE",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PID_APID",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PID_PI1_VAL",
+        kind: Integer,
+        required: false,
+        default: Some("0"),
+    },
+    Column {
+        name: "PID_PI2_VAL",
+        kind: Integer,
+        required: false,
+        default: Some("0"),
+    },
+    Column {
+        name: "PID_SPID",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PID_DESCR",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PID_UNIT",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PID_TPSD",
+        kind: Integer,
+        required: false,
+        default: Some("-1"),
+    },
+    Column {
+        name: "PID_DFHSIZE",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PID_TIME",
+        kind: Code("YN"),
+        required: false,
+        default: Some("N"),
+    },
+    Column {
+        name: "PID_INTER",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "PID_VALID",
+        kind: Code("YN"),
+        required: false,
+        default: Some("Y"),
+    },
+    Column {
+        name: "PID_CHECK",
+        kind: Integer,
+        required: false,
+        default: Some("0"),
+    },
+    Column {
+        name: "PID_EVENT",
+        kind: Code("NIEW"),
+        required: false,
+        default: Some("N"),
+    },
+    Column {
+        name: "PID_EVID",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+];
+fn parse_pid(text: &str, source: Source) -> Result<Row<Pid>, String> {
+    let definition = parse_definition(text, source, PID)?;
+    let spid = integer_cell(&definition, 5)
+        .value
+        .and_then(|n| u64::try_from(n).ok())
+        .ok_or("SPID must be nonnegative")?;
+    let cells = Pid {
+        r#type: integer_cell(&definition, 0),
+        stype: integer_cell(&definition, 1),
+        apid: integer_cell(&definition, 2),
+        pi1_val: integer_cell(&definition, 3),
+        pi2_val: integer_cell(&definition, 4),
+        spid: cell(&definition, 5, |_| Some(PacketSpid(spid))),
+        descr: text_cell(&definition, 6),
+        unit: text_cell(&definition, 7),
+        tpsd: integer_cell(&definition, 8),
+        dfhsize: integer_cell(&definition, 9),
+        time: text_cell(&definition, 10),
+        r#inter: integer_cell(&definition, 11),
+        valid: text_cell(&definition, 12),
+        check: integer_cell(&definition, 13),
+        event: text_cell(&definition, 14),
+        evid: text_cell(&definition, 15),
+    };
+    Ok(Row { definition, cells })
+}
+
+const TPCF: &[Column] = &[
+    Column {
+        name: "TPCF_SPID",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "TPCF_NAME",
+        kind: Text,
+        required: false,
+        default: None,
+    },
+    Column {
+        name: "TPCF_SIZE",
+        kind: Integer,
+        required: false,
+        default: None,
+    },
+];
+fn parse_tpcf(text: &str, source: Source) -> Result<Row<Tpcf>, String> {
+    let definition = parse_definition(text, source, TPCF)?;
+    let spid = integer_cell(&definition, 0)
+        .value
+        .and_then(|n| u64::try_from(n).ok())
+        .ok_or("SPID must be nonnegative")?;
+    let cells = Tpcf {
+        spid: cell(&definition, 0, |_| Some(PacketSpid(spid))),
+        name: text_cell(&definition, 1),
+        size: integer_cell(&definition, 2),
+    };
+    Ok(Row { definition, cells })
+}
+
+const PIC: &[Column] = &[
+    Column {
+        name: "PIC_TYPE",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PIC_STYPE",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PIC_PI1_OFF",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PIC_PI1_WID",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PIC_PI2_OFF",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PIC_PI2_WID",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PIC_APID",
+        kind: Integer,
+        required: false,
+        default: Some("99999"),
+    },
+];
+fn parse_pic(text: &str, source: Source) -> Result<Row<Pic>, String> {
+    let definition = parse_definition(text, source, PIC)?;
+    let cells = Pic {
+        r#type: integer_cell(&definition, 0),
+        stype: integer_cell(&definition, 1),
+        pi1_off: integer_cell(&definition, 2),
+        pi1_wid: integer_cell(&definition, 3),
+        pi2_off: integer_cell(&definition, 4),
+        pi2_wid: integer_cell(&definition, 5),
+        apid: integer_cell(&definition, 6),
+    };
+    Ok(Row { definition, cells })
+}
+
+const PLF: &[Column] = &[
+    Column {
+        name: "PLF_NAME",
+        kind: Text,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PLF_SPID",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PLF_OFFBY",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PLF_OFFBI",
+        kind: Integer,
+        required: true,
+        default: None,
+    },
+    Column {
+        name: "PLF_NBOCC",
+        kind: Integer,
+        required: false,
+        default: Some("1"),
+    },
+    Column {
+        name: "PLF_LGOCC",
+        kind: Integer,
+        required: false,
+        default: Some("0"),
+    },
+    Column {
+        name: "PLF_TIME",
+        kind: Integer,
+        required: false,
+        default: Some("0"),
+    },
+    Column {
+        name: "PLF_TDOCC",
+        kind: Integer,
+        required: false,
+        default: Some("1"),
+    },
+];
+fn parse_plf(text: &str, source: Source) -> Result<Row<Plf>, String> {
+    let definition = parse_definition(text, source, PLF)?;
+    let spid = integer_cell(&definition, 1)
+        .value
+        .and_then(|n| u64::try_from(n).ok())
+        .ok_or("SPID must be nonnegative")?;
+    let cells = Plf {
+        name: cell(&definition, 0, |s| match s {
+            Scalar::Text(s) => Some(ParameterName(s.clone())),
+            _ => None,
+        }),
+        spid: cell(&definition, 1, |_| Some(PacketSpid(spid))),
+        offby: integer_cell(&definition, 2),
+        offbi: integer_cell(&definition, 3),
+        nbocc: integer_cell(&definition, 4),
+        lgocc: integer_cell(&definition, 5),
+        time: integer_cell(&definition, 6),
+        tdocc: integer_cell(&definition, 7),
     };
     Ok(Row { definition, cells })
 }

@@ -145,3 +145,81 @@ fn configuration_accepts_non_unicode_directory_paths() {
     assert!(output.status.success());
     assert!(output.stderr.is_empty());
 }
+
+#[test]
+fn packet_details_and_parameter_containment_render_fixed_layout() {
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    dir.write("pid.dat", "3\t25\t42\t7\t0\t89000\tHousekeeping\t\t-1\t10");
+    dir.write("tpcf.dat", "89000\tZUY_HK_00001\t32");
+    dir.write("pic.dat", "3\t25\t16\t8\t-1\t0");
+    dir.write("plf.dat", "TEMP\t89000\t19\t0\t2\t8");
+    let output = run(&dir, &["packet", "089000"]);
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    for expected in [
+        "Packet: 89000",
+        "ZUY_HK_00001",
+        "APID: 42",
+        "Expected: 7",
+        "byte 16 bit 0",
+        "byte 19 bit 0",
+        "byte 20 bit 0",
+        "8 bits",
+        "Temperature",
+        "TPCF_SIZE",
+        "PIC_PI1_WID",
+        "PLF_NBOCC",
+        "PCF_PTC",
+        "Repeated 2 times",
+    ] {
+        assert!(text.contains(expected), "missing {expected}: {text}");
+    }
+    let output = run(&dir, &["parameter", "TEMP"]);
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("Packet: 89000") && text.contains("byte 20 bit 0"));
+    let output = run(&dir, &["packet", "99"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty() && output.stderr.is_empty());
+}
+
+#[test]
+fn packet_absence_ambiguity_and_malformed_rows_follow_cli_policy() {
+    let dir = Fixture::new();
+    dir.write("tpcf.dat", "89000\tSynthetic");
+    let output = run(&dir, &["packet", "89000"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty() && output.stderr.is_empty());
+    let row = "3\t25\t42\t0\t0\t89000\tHousekeeping\t\t-1\t10";
+    dir.write("pid.dat", &format!("bad\n{row}\n{row}"));
+    let output = run(&dir, &["packet", "89000"]);
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.starts_with("Kind\tIdentity\tName\tDescription\tSource"));
+    assert!(text.contains("pid.dat:2") && text.contains("pid.dat:3"));
+    let output = run(&dir, &["--debug", "packet", "99"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    let text = String::from_utf8(output.stderr).unwrap();
+    assert!(text.contains("dropped row") && text.contains("pid.dat") && text.contains("bad"));
+    for invalid in ["-1", "+1", "no", "18446744073709551616"] {
+        let output = run(&dir, &["packet", invalid]);
+        assert_eq!(output.status.code(), Some(2));
+        assert!(!output.stderr.is_empty());
+    }
+}
+
+#[test]
+fn packet_without_additional_criteria_still_renders_pic_fields() {
+    let dir = Fixture::new();
+    dir.write("pid.dat", "3\t25\t42\t0\t0\t89000\tHousekeeping\t\t-1\t10");
+    dir.write("pic.dat", "3\t25\t-1\t0\t-1\t0");
+    let output = run(&dir, &["packet", "89000"]);
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        text.contains("PIC_PI1_OFF") && text.contains("PIC_APID") && text.contains("pic.dat:1")
+    );
+    assert!(!text.contains("Expected:"));
+}

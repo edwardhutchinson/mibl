@@ -23,7 +23,7 @@ enum CliError {
     Load(LoadError),
     Output(io::Error),
 }
-/// Only parameter lookup is executable in this slice. Preserve non-Unicode paths.
+/// Preserve non-Unicode directory paths.
 fn configure(
     arguments: Vec<OsString>,
     mib_dir: Option<OsString>,
@@ -44,9 +44,21 @@ fn configure(
             })?;
             Request::Parameter(ParameterName(name.into()))
         }
+        [verb, spid] if verb == "packet" => {
+            let spid = spid
+                .to_str()
+                .filter(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(|| {
+                    ConfigurationError::InvalidArguments(
+                        "packet SPID must be an unsigned integer".into(),
+                    )
+                })?;
+            Request::Packet(PacketSpid(spid))
+        }
         _ => {
             return Err(ConfigurationError::InvalidArguments(
-                "usage: mibl [--debug] parameter NAME".into(),
+                "usage: mibl [--debug] parameter NAME | packet SPID".into(),
             ));
         }
     };
@@ -77,15 +89,20 @@ enum Response {
 fn query(mib: &Mib, request: &Request) -> Response {
     match request {
         Request::Parameter(name) => Response::Parameter(mib.parameter(name)),
+        Request::Packet(spid) => Response::Packet(mib.packet(*spid)),
         _ => todo!("request is not exposed until its owning viewer slice"),
     }
 }
 
 fn render(response: &Response, stdout: &mut dyn io::Write) -> Result<ExitCode, io::Error> {
     match response {
-        Response::Parameter(Lookup::NotFound(_)) => return Ok(ExitCode::from(1)),
+        Response::Parameter(Lookup::NotFound(_)) | Response::Packet(Lookup::NotFound(_)) => {
+            return Ok(ExitCode::from(1));
+        }
         Response::Parameter(Lookup::Found(description)) => render_parameter(description, stdout)?,
-        Response::Parameter(Lookup::Ambiguous(candidates)) => {
+        Response::Packet(Lookup::Found(description)) => render_packet(description, stdout)?,
+        Response::Parameter(Lookup::Ambiguous(candidates))
+        | Response::Packet(Lookup::Ambiguous(candidates)) => {
             render_candidates(
                 std::iter::once(candidates.first.as_ref())
                     .chain(std::iter::once(candidates.second.as_ref()))
@@ -99,7 +116,22 @@ fn render(response: &Response, stdout: &mut dyn io::Write) -> Result<ExitCode, i
 }
 
 fn render_parameter(description: &ParameterDescription, out: &mut dyn io::Write) -> io::Result<()> {
-    let p = &description.parameter;
+    render_parameter_summary(&description.parameter, out)?;
+    render_problems(&description.occurrences.problems, out)?;
+    if let Some(packets) = &description.occurrences.value {
+        for packet in packets {
+            render_problems(&packet.packet.problems, out)?;
+            if let Some(summary) = &packet.packet.value {
+                render_packet_summary(summary, out)?;
+            }
+            for occurrence in &packet.occurrences {
+                render_occurrence(occurrence, false, out)?;
+            }
+        }
+    }
+    Ok(())
+}
+fn render_parameter_summary(p: &ParameterSummary, out: &mut dyn io::Write) -> io::Result<()> {
     writeln!(out, "Parameter: {}", p.name.0.escape_debug())?;
     writeln!(out, "Description: {}", display_text(&p.description))?;
     let encoding = &p.encoding;
@@ -143,14 +175,18 @@ fn render_parameter(description: &ParameterDescription, out: &mut dyn io::Write)
     ] {
         render_problems(problems, out)?;
     }
+    render_definition(&p.definition, out)?;
+    render_problems(&p.calibrations.problems, out)
+}
+fn render_definition(definition: &Definition, out: &mut dyn io::Write) -> io::Result<()> {
     writeln!(
         out,
         "Source: {}:{}",
-        p.definition.source.file.display(),
-        p.definition.source.line
+        definition.source.file.display(),
+        definition.source.line
     )?;
     writeln!(out, "Column\tField\tRecorded presence\tInterpretation")?;
-    for field in &p.definition.fields {
+    for field in &definition.fields {
         let recorded = match &field.presence {
             Presence::Omitted => "omitted".into(),
             Presence::Empty => "empty".into(),
@@ -177,8 +213,147 @@ fn render_parameter(description: &ParameterDescription, out: &mut dyn io::Write)
             render_problems(&meaning.interpretation.problems, out)?;
         }
     }
-    render_problems(&p.calibrations.problems, out)?;
-    render_problems(&description.occurrences.problems, out)
+    Ok(())
+}
+fn render_packet_summary(packet: &PacketSummary, out: &mut dyn io::Write) -> io::Result<()> {
+    writeln!(out, "Packet: {}", packet.spid.0)?;
+    writeln!(out, "Name: {}", display_text(&packet.name))?;
+    writeln!(out, "Description: {}", display_text(&packet.description))?;
+    render_problems(&packet.name.problems, out)?;
+    render_definition(&packet.definition, out)?;
+    render_problems(&packet.characteristics.problems, out)?;
+    if let Some(definitions) = &packet.characteristics.value {
+        for definition in definitions {
+            render_definition(definition, out)?;
+        }
+    }
+    Ok(())
+}
+fn render_packet(packet: &PacketDescription, out: &mut dyn io::Write) -> io::Result<()> {
+    render_packet_summary(&packet.packet, out)?;
+    let identification = &packet.identification;
+    for definition in &identification.definitions {
+        render_definition(definition, out)?;
+    }
+    writeln!(out, "APID: {}", display_number(&identification.apid))?;
+    writeln!(
+        out,
+        "Service type: {}",
+        display_number(&identification.service_type)
+    )?;
+    writeln!(
+        out,
+        "Service subtype: {}",
+        display_number(&identification.service_subtype)
+    )?;
+    for problems in [
+        &identification.apid.problems,
+        &identification.service_type.problems,
+        &identification.service_subtype.problems,
+        &identification.criteria.problems,
+    ] {
+        render_problems(problems, out)?;
+    }
+    if let Some(criteria) = &identification.criteria.value {
+        for criterion in criteria {
+            writeln!(out, "Expected: {}", display_number(&criterion.expected))?;
+            render_problems(&criterion.expected.problems, out)?;
+            render_location(&criterion.extraction, out)?;
+            for definition in &criterion.definitions {
+                render_definition(definition, out)?;
+            }
+        }
+    }
+    render_problems(&packet.layout.problems, out)?;
+    if let Some(layout) = &packet.layout.value {
+        render_layout(layout, out)?;
+    }
+    Ok(())
+}
+fn render_layout(
+    layout: &[Layout<ParameterOccurrence>],
+    out: &mut dyn io::Write,
+) -> io::Result<()> {
+    for element in layout {
+        match element {
+            Layout::Element(occurrence) => render_occurrence(occurrence, true, out)?,
+            Layout::Repeat {
+                repetition,
+                children,
+                ..
+            } => {
+                render_repetition(repetition, out)?;
+                render_layout(children, out)?;
+            }
+            Layout::Conditional {
+                condition,
+                children,
+                ..
+            } => {
+                writeln!(out, "Condition: {}", condition.expression.escape_debug())?;
+                render_layout(children, out)?;
+            }
+        }
+    }
+    Ok(())
+}
+fn render_occurrence(
+    occurrence: &ParameterOccurrence,
+    expand_parameter: bool,
+    out: &mut dyn io::Write,
+) -> io::Result<()> {
+    writeln!(out, "Occurrence: {}", occurrence.reference.0.escape_debug())?;
+    render_location(&occurrence.location, out)?;
+    for enclosure in &occurrence.enclosing {
+        match enclosure {
+            Enclosure::Repetition(repetition) => render_repetition(repetition, out)?,
+            Enclosure::Condition(condition) => {
+                writeln!(out, "Condition: {}", condition.expression.escape_debug())?
+            }
+        }
+    }
+    render_definition(&occurrence.definition, out)?;
+    render_problems(&occurrence.parameter.problems, out)?;
+    if expand_parameter && let Some(parameter) = &occurrence.parameter.value {
+        render_parameter_summary(parameter, out)?;
+    }
+    Ok(())
+}
+fn render_repetition(repetition: &Info<Repetition>, out: &mut dyn io::Write) -> io::Result<()> {
+    render_problems(&repetition.problems, out)?;
+    match &repetition.value {
+        Some(Repetition::Fixed { count, stride_bits }) => {
+            writeln!(
+                out,
+                "Repeated {count} times, stride {} bits",
+                display_number(stride_bits)
+            )?;
+            render_problems(&stride_bits.problems, out)?;
+        }
+        Some(Repetition::Runtime(declaration)) => writeln!(
+            out,
+            "Runtime repetition: {}",
+            declaration.expression.escape_debug()
+        )?,
+        None => writeln!(out, "Repetition unavailable")?,
+    }
+    Ok(())
+}
+fn render_location(location: &Location, out: &mut dyn io::Write) -> io::Result<()> {
+    match &location.position.value {
+        Some(Position::PacketAbsolute { byte, bit }) => {
+            writeln!(out, "Location: byte {byte} bit {bit}")?
+        }
+        Some(position) => writeln!(out, "Location: {position:?}")?,
+        None => writeln!(out, "Location: unavailable")?,
+    }
+    writeln!(
+        out,
+        "Encoded width: {} bits",
+        display_number(&location.encoded_bits)
+    )?;
+    render_problems(&location.position.problems, out)?;
+    render_problems(&location.encoded_bits.problems, out)
 }
 fn display_scalar(value: &Scalar) -> String {
     match value {

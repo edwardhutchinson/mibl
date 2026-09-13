@@ -4,12 +4,14 @@ use crate::{
     reader::{Pcf, Records, Row},
 };
 use std::collections::HashMap;
+mod packets;
 /// Stable within this snapshot; points into retained root rows, never a public handle.
 pub(crate) struct RowId(usize);
 pub(crate) struct Catalog {
     records: Records,
     parameters: HashMap<ParameterName, Vec<RowId>>,
     packets: HashMap<PacketSpid, Vec<RowId>>,
+    variable_packet_source: Option<Source>,
     commands: HashMap<CommandName, Vec<RowId>>,
     supporting: HashMap<(Table, String), Vec<RowId>>,
 }
@@ -25,18 +27,25 @@ impl Catalog {
                     .push(RowId(index));
             }
         }
-        Self {
+        let mut catalog = Self {
             records,
             parameters,
             packets: HashMap::new(),
+            variable_packet_source: None,
             commands: HashMap::new(),
             supporting: HashMap::new(),
-        }
+        };
+        catalog.index_packets();
+        catalog
     }
     pub(crate) fn parameter(&self, name: &ParameterName) -> Lookup<ParameterDescription> {
         tracing::debug!(parameter = %name.0, matches = self.parameters.get(name).map_or(0, Vec::len), definitions = self.parameters.len(), "exact parameter lookup");
         match self.parameters.get(name).map(Vec::as_slice) {
-            Some([row]) => Lookup::Found(describe_parameter(&self.records.pcf.rows()[row.0])),
+            Some([row]) => {
+                let mut description = describe_parameter(&self.records.pcf.rows()[row.0]);
+                description.occurrences = self.parameter_occurrences(name);
+                Lookup::Found(description)
+            }
             Some([first, second, rest @ ..]) => Lookup::Ambiguous(AtLeastTwo {
                 first: Box::new(parameter_candidate(&self.records.pcf.rows()[first.0])),
                 second: Box::new(parameter_candidate(&self.records.pcf.rows()[second.0])),
@@ -55,9 +64,6 @@ impl Catalog {
                 Lookup::NotFound(reason)
             }
         }
-    }
-    pub(crate) fn packet(&self, _spid: PacketSpid) -> Lookup<PacketDescription> {
-        todo!("interface only")
     }
     pub(crate) fn command(&self, _name: &CommandName) -> Lookup<CommandDescription> {
         todo!("interface only")

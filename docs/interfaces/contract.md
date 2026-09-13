@@ -4,7 +4,8 @@ Status: accepted by the maintainer at commit `ef6ea86`; issue #8 is closed.
 [Acceptance record](https://github.com/edwardhutchinson/mibl/issues/8#issuecomment-5648856740).
 The complete interface set remains the contract for the implementation slices.
 Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
-Packet, command and search operations remain explicit placeholders.
+Issue #10 implements fixed packet lookup and containing occurrences.
+Command, search and variable packet operations remain explicit placeholders.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -189,3 +190,38 @@ reasons; the CLI consumes Found, Ambiguous and NotFound through public Mib calls
 Source locations and interpreted defaults reach the field renderer unchanged.
 Library events reach only the application-owned tracing subscriber. Public Mib
 and CLI process tests cover these exchanges using synthetic temporary files.
+
+## Issue #10 contract amendment and cross-check
+
+`PacketSummary.characteristics: Info<Vec<Definition>>` carries all matching TPCF
+rows in source order. The existing `name` carries the resolved name and local
+missing or ambiguous reference problems. Characteristics retain every recorded
+field, including TPCF_SIZE, even if the name cannot be resolved. Missing TPCF
+rows produce a missing-reference problem and no characteristics value.
+
+The reader already produces these definitions in `Row<Tpcf>`. The catalog copies
+them into owned packet summaries, including summaries in parameter results. The
+CLI renders their recorded fields and provenance. This closes the missing path
+from the existing reader declaration to the recorded-metadata consumer without
+exposing private rows. Duplicate TPCF rows remain available in both this collection
+and ambiguous-reference targets. PID remains the packet root definition.
+
+Fixed PLF repetitions are expanded into individual layout elements, each carrying
+its fixed count and bit stride in `enclosing`. Positions sort by byte and bit,
+then source location, then repetition instance. Parameter results use the same
+occurrences, grouped numerically by SPID. This is finite expansion of the bounded
+PLF_NBOCC count; runtime and variable structures belong to the VPD slice.
+
+`PacketIdentification.definitions: Vec<Definition>` retains all matching PIC rows
+in source order, including rows that disable both additional criteria with -1
+offsets. Reader `Row<Pic>` definitions feed this catalog-owned collection; the CLI
+renders it even when `criteria` is empty. Criterion definitions continue to include
+PID and all matching PIC evidence. Thus disabling extraction cannot hide the
+recorded definition. The collection is empty when no PIC rows match; the criteria
+information carries the missing-reference problem.
+
+A PLF occurrence linked to a PID with a variable TPSD remains inspectable in a
+parameter result, with an inconsistent-definition problem containing both rows.
+The packet result continues to mark its variable layout unsupported. Parameter
+occurrence collections also carry an unsupported-interpretation problem when the
+snapshot contains variable PID definitions, because VPD containment is not loaded.
