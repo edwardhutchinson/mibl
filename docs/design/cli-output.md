@@ -16,7 +16,8 @@ Problematic: DEMO_MODE is an 8-bit enumerated parameter, PTC 2 / PFC 8. Packet
 42002 contains it twice, at bytes 20 and 22, from one PLF row with count 2 and
 stride 16 bits. DEMO_UNKNOWN has no PCF target at byte 24. DEMO_DUP at byte 25
 has two PCF targets. Two TPCF rows disagree on the packet name. Two PIC rows
-declare different PI1 widths. Both alternatives remain evidence; neither wins.
+declare different PI1 widths, 8 and 16 bits, at the same byte 10 offset.
+Both disable PI2. Both alternatives remain evidence; neither wins.
 The DEMO_MODE parameter view exposes the containing packet's problems, but does
 not expand unrelated DEMO_UNKNOWN or DEMO_DUP occurrences.
 
@@ -103,7 +104,7 @@ Source: pid.dat:2
 Identification
 APID: 42
 Service: type 3, subtype 26
-PI1 expected: 7; extraction: unavailable [P2]
+PI1 expected: 7; location: byte 10 bit 0; width: unavailable [P2]
 
 Layout
 Parameter     Location       Width        Repeat
@@ -118,6 +119,7 @@ Problems
 [P3] DEMO_UNKNOWN: missing reference; no matching PCF definition.
 [P4] DEMO_DUP: ambiguous reference; 2 PCF candidates.
 [P5] DEMO_MODE calibration: unsupported interpretation; expansion is not implemented.
+[P6] Identification criteria: ambiguous reference; 2 PIC candidates.
 Use --details for recorded fields and problem evidence.
 ```
 
@@ -152,6 +154,9 @@ Problem evidence
 [P4] DEMO_DUP, reference PCF NAME DEMO_DUP
   Candidate: pcf.dat:3 [D10]
   Candidate: pcf.dat:4 [D11]
+[P6] Identification criteria, reference PIC type 3 / subtype 26
+  Candidate: pic.dat:2 [D4]
+  Candidate: pic.dat:3 [D5]
 
 Definitions
 [D6] DEMO_MODE parameter, pcf.dat:2
@@ -262,7 +267,13 @@ Packet 42002
     Candidate DEMO_HK_B, tpcf.dat:3
       ... complete candidate fields ...
   Identification
+    Problem: ambiguous reference PIC type 3 / subtype 26
+      Candidate pic.dat:2
+        ... complete fields ...
+      Candidate pic.dat:3
+        ... complete fields ...
     PI1 expected: 7
+    Location: byte 10 bit 0
     Extraction width: unavailable
     Problem: inconsistent definition
       8 bits, pic.dat:2
@@ -407,3 +418,13 @@ problem visibility, evidence access and width rules, and explicitly accept the
 resulting examples. Record their response and accepted commit here, cross-check
 and amend the contract, then update #20. Do not mark #19 complete or #20 ready
 before that response. No choice has been made on the maintainer's behalf.
+
+## Draft validation
+
+Reviewed against starting commit `b14d19bc1f15a8b7a3a4135cb9e73916cdd9ea16`
+with separate standards and spec reviewers. Standards found no violations or
+actionable smells. Spec review identified a missing PIC ambiguity warning and
+an obscured known extraction position in the examples; both are corrected.
+`cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings` and
+all 28 integration tests passed. These checks validate the unchanged codebase,
+not the proposed output. No behavior or tests were added in this design ticket.
