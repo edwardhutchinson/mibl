@@ -1,6 +1,8 @@
 //! Private typed rows and shared loading. Table families are added in their owning slices.
 use crate::{LoadError, model::*};
 use std::{io, path::Path};
+mod commands;
+use commands::{parse_ccf, parse_cdf, parse_cpc};
 
 /// Every retained row owns recorded fields and independent interpreted cells.
 pub(crate) struct Row<T> {
@@ -326,7 +328,13 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
     let tpcf = read_table(directory, "tpcf.dat", parse_tpcf);
     let pic = read_table(directory, "pic.dat", parse_pic);
     let plf = read_table(directory, "plf.dat", parse_plf);
-    if pcf.rows().is_empty()
+    let ccf = read_table(directory, "ccf.dat", parse_ccf);
+    let cdf = read_table(directory, "cdf.dat", parse_cdf);
+    let cpc = read_table(directory, "cpc.dat", parse_cpc);
+    if cdf.rows().is_empty()
+        && cpc.rows().is_empty()
+        && ccf.rows().is_empty()
+        && pcf.rows().is_empty()
         && caf.rows().is_empty()
         && pid.rows().is_empty()
         && tpcf.rows().is_empty()
@@ -351,9 +359,9 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         lgf: TableLoad::Missing,
         txf: TableLoad::Missing,
         txp: TableLoad::Missing,
-        ccf: TableLoad::Missing,
-        cdf: TableLoad::Missing,
-        cpc: TableLoad::Missing,
+        ccf,
+        cdf,
+        cpc,
         cca: TableLoad::Missing,
         ccs: TableLoad::Missing,
         paf: TableLoad::Missing,

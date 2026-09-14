@@ -1,4 +1,6 @@
 //! Plain, deterministic views of the returned description. Never queries the MIB.
+mod commands;
+pub(super) use commands::command;
 use mibl::model::*;
 use std::{
     collections::BTreeMap,
@@ -102,21 +104,7 @@ fn field_value<'a>(d: &'a Definition, name: &str) -> Option<&'a Scalar> {
 }
 fn parameter_summary(p: &ParameterSummary) -> Vec<String> {
     let e = &p.encoding;
-    let kind = match e.ptc.value {
-        Some(1) => "boolean",
-        Some(2) => "enumerated",
-        Some(3) => "unsigned integer",
-        Some(4) => "signed integer",
-        Some(5) => "real",
-        Some(6) => "bit string",
-        Some(7) => "octet string",
-        Some(8) => "character string",
-        Some(9) => "absolute time",
-        Some(10) => "relative time",
-        Some(11) => "deduced",
-        Some(13) => "saved synthetic",
-        _ => "unavailable",
-    };
+    let kind = encoding_kind(e);
     let endian = match e.endian.value.as_deref() {
         Some("B") => "big endian".into(),
         Some("L") => "little endian".into(),
@@ -902,3 +890,21 @@ pub(super) fn candidates<'a>(
 
 #[cfg(test)]
 mod tests;
+
+fn encoding_kind(e: &Encoding) -> &'static str {
+    match e.ptc.value {
+        Some(1) => "boolean",
+        Some(2) => "enumerated",
+        Some(3) => "unsigned integer",
+        Some(4) => "signed integer",
+        Some(5) => "real",
+        Some(6) => "bit string",
+        Some(7) => "octet string",
+        Some(8) => "character string",
+        Some(9) => "absolute time",
+        Some(10) => "relative time",
+        Some(11) => "deduced",
+        Some(13) => "saved synthetic",
+        _ => "unavailable",
+    }
+}

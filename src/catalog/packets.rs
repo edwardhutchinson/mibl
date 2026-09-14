@@ -45,12 +45,6 @@ impl Catalog {
         }
     }
 
-    fn related(&self, table: Table, key: String) -> &[RowId] {
-        self.supporting
-            .get(&(table, key))
-            .map_or(&[], Vec::as_slice)
-    }
-
     fn packet_summary(&self, row: &Row<Pid>) -> PacketSummary {
         let spid = row.cells.spid.value.unwrap();
         let reference = Reference::Supporting {
@@ -447,35 +441,6 @@ fn position_key(position: &Info<Position>) -> Option<(u64, u8)> {
         _ => None,
     }
 }
-fn unavailable<T>(source: &Source, explanation: &str) -> Info<T> {
-    Info {
-        value: None,
-        sources: vec![source.clone()],
-        problems: vec![Problem {
-            kind: ProblemKind::UnsupportedInterpretation {
-                column: None,
-                meanings: vec![],
-            },
-            sources: vec![source.clone()],
-            explanation: explanation.into(),
-        }],
-    }
-}
-fn unsigned<T: TryFrom<i64>>(cell: &Info<i64>, field: &str) -> Info<T> {
-    let value = cell.value.and_then(|v| T::try_from(v).ok());
-    if cell.value.is_some() && value.is_none() {
-        unavailable(
-            &cell.sources[0],
-            &format!("{field} is outside the supported unsigned range"),
-        )
-    } else {
-        Info {
-            value,
-            problems: cell.problems.clone(),
-            sources: cell.sources.clone(),
-        }
-    }
-}
 fn packet_position(byte: &Info<i64>, bit: &Info<i64>) -> Info<Position> {
     match (byte.value.and_then(|v| u64::try_from(v).ok()), bit.value) {
         (Some(byte_value), Some(bit_value @ 0..=7)) => info(
@@ -488,59 +453,6 @@ fn packet_position(byte: &Info<i64>, bit: &Info<i64>) -> Info<Position> {
         _ => unavailable(&byte.sources[0], "Invalid packet byte/bit position"),
     }
 }
-fn missing<T>(reference: Reference, source: &Source) -> Info<T> {
-    Info {
-        value: None,
-        sources: vec![source.clone()],
-        problems: vec![Problem {
-            explanation: format!("Missing reference: {reference:?}"),
-            kind: ProblemKind::MissingReference { reference },
-            sources: vec![source.clone()],
-        }],
-    }
-}
-fn resolve<T, U>(
-    rows: &[&Row<T>],
-    reference: Reference,
-    source: &Source,
-    describe: impl FnOnce(&Row<T>) -> Option<U>,
-) -> Info<U> {
-    match rows {
-        [] => missing(reference, source),
-        [row] => Info {
-            value: describe(row),
-            sources: vec![source.clone(), row.definition.source.clone()],
-            problems: vec![],
-        },
-        [first, second, rest @ ..] => {
-            let target = |r: &Row<T>| Target {
-                reference: reference.clone(),
-                definition: r.definition.clone(),
-            };
-            Info {
-                value: None,
-                sources: std::iter::once(source.clone())
-                    .chain(rows.iter().map(|r| r.definition.source.clone()))
-                    .collect(),
-                problems: vec![Problem {
-                    explanation: format!("Ambiguous reference: {reference:?}"),
-                    sources: std::iter::once(source.clone())
-                        .chain(rows.iter().map(|r| r.definition.source.clone()))
-                        .collect(),
-                    kind: ProblemKind::AmbiguousReference {
-                        reference: reference.clone(),
-                        alternatives: AtLeastTwo {
-                            first: Box::new(target(first)),
-                            second: Box::new(target(second)),
-                            rest: rest.iter().map(|r| target(r)).collect(),
-                        },
-                    },
-                }],
-            }
-        }
-    }
-}
-
 fn reconcile_cells(
     cells: &[&Info<i64>],
     definitions: &[Definition],

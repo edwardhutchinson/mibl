@@ -4,6 +4,7 @@ use crate::{
     reader::{Pcf, Records, Row},
 };
 use std::collections::HashMap;
+mod commands;
 mod packets;
 /// Stable within this snapshot; points into retained root rows, never a public handle.
 pub(crate) struct RowId(usize);
@@ -36,8 +37,15 @@ impl Catalog {
             supporting: HashMap::new(),
         };
         catalog.index_packets();
+        catalog.index_commands();
         catalog
     }
+    fn related(&self, table: Table, key: String) -> &[RowId] {
+        self.supporting
+            .get(&(table, key))
+            .map_or(&[], Vec::as_slice)
+    }
+
     pub(crate) fn parameter(&self, name: &ParameterName) -> Lookup<ParameterDescription> {
         tracing::debug!(parameter = %name.0, matches = self.parameters.get(name).map_or(0, Vec::len), definitions = self.parameters.len(), "exact parameter lookup");
         match self.parameters.get(name).map(Vec::as_slice) {
@@ -64,9 +72,6 @@ impl Catalog {
                 Lookup::NotFound(reason)
             }
         }
-    }
-    pub(crate) fn command(&self, _name: &CommandName) -> Lookup<CommandDescription> {
-        todo!("interface only")
     }
     pub(crate) fn search(&self, _query: &str, _scope: SearchScope) -> Vec<Candidate> {
         todo!("interface only")
@@ -105,26 +110,7 @@ fn describe_parameter(row: &Row<Pcf>) -> ParameterDescription {
     let source = &row.definition.source;
     let ptc = p.ptc.value.and_then(|n| u16::try_from(n).ok());
     let pfc = p.pfc.value.and_then(|n| u32::try_from(n).ok());
-    let bits = match (ptc, pfc) {
-        (Some(1), Some(0)) => Some(1),
-        (Some(2 | 6), Some(n @ 1..=32)) => Some(u64::from(n)),
-        (Some(3 | 4), Some(n @ 0..=12)) => Some(u64::from(n) + 4),
-        (Some(3 | 4), Some(13)) => Some(24),
-        (Some(3 | 4), Some(14)) => Some(32),
-        (Some(3 | 4), Some(15)) => Some(48),
-        (Some(3 | 4), Some(16)) => Some(64),
-        (Some(5), Some(1 | 3)) => Some(32),
-        (Some(5), Some(2)) => Some(64),
-        (Some(5), Some(4)) => Some(48),
-        (Some(7 | 8), Some(n @ 1..)) => Some(u64::from(n) * 8),
-        (Some(9), Some(1)) => Some(48),
-        (Some(9), Some(2 | 30)) => Some(64),
-        (Some(9 | 10), Some(n @ 3..=18)) => {
-            // CUC formats enumerate one to four coarse octets, each with zero to three fine octets.
-            Some(u64::from(1 + (n - 3) / 4 + (n - 3) % 4) * 8)
-        }
-        _ => None,
-    };
+    let bits = encoded_bits(ptc, pfc);
     ParameterDescription {
         parameter: ParameterSummary {
             name: p
@@ -190,5 +176,110 @@ fn parameter_candidate(row: &Row<Pcf>) -> Candidate {
         ),
         description: row.cells.descr.clone(),
         source: row.definition.source.clone(),
+    }
+}
+
+fn encoded_bits(ptc: Option<u16>, pfc: Option<u32>) -> Option<u64> {
+    match (ptc, pfc) {
+        (Some(1), Some(0)) => Some(1),
+        (Some(2 | 6), Some(n @ 1..=32)) => Some(u64::from(n)),
+        (Some(3 | 4), Some(n @ 0..=12)) => Some(u64::from(n) + 4),
+        (Some(3 | 4), Some(13)) => Some(24),
+        (Some(3 | 4), Some(14)) => Some(32),
+        (Some(3 | 4), Some(15)) => Some(48),
+        (Some(3 | 4), Some(16)) => Some(64),
+        (Some(5), Some(1 | 3)) => Some(32),
+        (Some(5), Some(2)) => Some(64),
+        (Some(5), Some(4)) => Some(48),
+        (Some(7 | 8), Some(n @ 1..)) => Some(u64::from(n) * 8),
+        (Some(9), Some(1)) => Some(48),
+        (Some(9), Some(2 | 30)) => Some(64),
+        (Some(9 | 10), Some(n @ 3..=18)) => {
+            // CUC formats enumerate one to four coarse octets, each with zero to three fine octets.
+            Some(u64::from(1 + (n - 3) / 4 + (n - 3) % 4) * 8)
+        }
+        _ => None,
+    }
+}
+
+fn unavailable<T>(source: &Source, explanation: &str) -> Info<T> {
+    Info {
+        value: None,
+        sources: vec![source.clone()],
+        problems: vec![Problem {
+            kind: ProblemKind::UnsupportedInterpretation {
+                column: None,
+                meanings: vec![],
+            },
+            sources: vec![source.clone()],
+            explanation: explanation.into(),
+        }],
+    }
+}
+fn unsigned<T: TryFrom<i64>>(cell: &Info<i64>, field: &str) -> Info<T> {
+    let value = cell.value.and_then(|v| T::try_from(v).ok());
+    if cell.value.is_some() && value.is_none() {
+        unavailable(
+            &cell.sources[0],
+            &format!("{field} is outside the supported unsigned range"),
+        )
+    } else {
+        Info {
+            value,
+            problems: cell.problems.clone(),
+            sources: cell.sources.clone(),
+        }
+    }
+}
+fn missing<T>(reference: Reference, source: &Source) -> Info<T> {
+    Info {
+        value: None,
+        sources: vec![source.clone()],
+        problems: vec![Problem {
+            explanation: format!("Missing reference: {reference:?}"),
+            kind: ProblemKind::MissingReference { reference },
+            sources: vec![source.clone()],
+        }],
+    }
+}
+fn resolve<T, U>(
+    rows: &[&Row<T>],
+    reference: Reference,
+    source: &Source,
+    describe: impl FnOnce(&Row<T>) -> Option<U>,
+) -> Info<U> {
+    match rows {
+        [] => missing(reference, source),
+        [row] => Info {
+            value: describe(row),
+            sources: vec![source.clone(), row.definition.source.clone()],
+            problems: vec![],
+        },
+        [first, second, rest @ ..] => {
+            let target = |r: &Row<T>| Target {
+                reference: reference.clone(),
+                definition: r.definition.clone(),
+            };
+            Info {
+                value: None,
+                sources: std::iter::once(source.clone())
+                    .chain(rows.iter().map(|r| r.definition.source.clone()))
+                    .collect(),
+                problems: vec![Problem {
+                    explanation: format!("Ambiguous reference: {reference:?}"),
+                    sources: std::iter::once(source.clone())
+                        .chain(rows.iter().map(|r| r.definition.source.clone()))
+                        .collect(),
+                    kind: ProblemKind::AmbiguousReference {
+                        reference: reference.clone(),
+                        alternatives: AtLeastTwo {
+                            first: Box::new(target(first)),
+                            second: Box::new(target(second)),
+                            rest: rest.iter().map(|r| target(r)).collect(),
+                        },
+                    },
+                }],
+            }
+        }
     }
 }

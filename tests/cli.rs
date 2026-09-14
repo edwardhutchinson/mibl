@@ -588,3 +588,106 @@ fn duplicate_positions_are_not_collapsed_and_unavailable_layout_is_not_empty() {
             .contains("\nLayout\nunavailable\n")
     );
 }
+
+#[test]
+fn command_overview_and_details_show_arguments_fixed_areas_and_runtime_evidence() {
+    let dir = Fixture::new();
+    dir.write(
+        "ccf.dat",
+        "DEMO_TC\tDemonstration command\tLong command description\t\t\tHEADER",
+    );
+    dir.write(
+        "cdf.dat",
+        "DEMO_TC\tE\t\t16\t0\t0\tARG\tT\t9\tTEMP\nDEMO_TC\tA\tPadding\t4\t8\t0\t\t\tF",
+    );
+    dir.write(
+        "cpc.dat",
+        "ARG\tArgument description\t3\t4\t\t\tV\t\t\t\t\t\t17\t\t\tB",
+    );
+    dir.write("pcf.dat", PARAMETER);
+    for prefix in [vec![], vec!["--details"]] {
+        let mut args = prefix.clone();
+        args.extend(["command", "DEMO_TC"]);
+        let output = run(&dir, &args);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        for expected in [
+            "Command DEMO_TC",
+            "Demonstration command",
+            "ccf.dat:1",
+            "ARG",
+            "Argument description",
+            "application-declared bit 0",
+            "8 bits",
+            "unsigned integer",
+            "\"17\" [R [default]]",
+            "telemetry TEMP",
+            "Fixed area",
+            "Padding",
+            "4 bits",
+            "inconsistent definition",
+            "runtime dependent",
+        ] {
+            assert!(text.contains(expected), "missing {expected}: {text}");
+        }
+        if prefix.is_empty() {
+            assert!(!text.contains("CCF_CNAME"));
+            assert!(text.contains("Use --details"));
+        } else {
+            for expected in [
+                "CCF_DESCR2",
+                "Long command description",
+                "CDF_VALUE",
+                "CPC_PNAME",
+                "CPC_NAME",
+                "CPC_OBTID",
+                "CPC_OBTIP",
+                "CPC_ENDIAN",
+                "CPC_DESCR2",
+                "pcf.dat:1",
+                "PCF_NAME",
+                "Recorded: omitted",
+                "Recorded: empty",
+                "documented default",
+            ] {
+                assert!(text.contains(expected), "missing {expected}: {text}");
+            }
+            assert!(!text.contains("Use --details"));
+        }
+    }
+}
+
+#[test]
+fn command_misses_are_silent_duplicates_are_candidates_and_debug_explains_loading() {
+    let dir = Fixture::new();
+    dir.write("cpc.dat", "ARG\tArgument\t3\t4");
+    let unavailable = run(&dir, &["command", "DEMO_TC"]);
+    assert_eq!(unavailable.status.code(), Some(1));
+    assert!(unavailable.stdout.is_empty() && unavailable.stderr.is_empty());
+    let row = "DEMO_TC\tCommand\t\t\t\tHEADER";
+    dir.write("ccf.dat", &format!("bad\n{row}\n{row}"));
+    let missing = run(&dir, &["command", "demo_tc"]);
+    assert_eq!(missing.status.code(), Some(1));
+    assert!(missing.stdout.is_empty() && missing.stderr.is_empty());
+    let output = run(&dir, &["command", "DEMO_TC"]);
+    assert!(output.status.success() && output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.starts_with("Kind") && text.contains("ccf.dat:2") && text.contains("ccf.dat:3"));
+    let output = run(&dir, &["--debug", "command", "missing"]);
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    let text = String::from_utf8(output.stderr).unwrap();
+    for expected in [
+        "dropped row",
+        "ccf.dat",
+        "exact command lookup",
+        "NoMatchingIdentity",
+    ] {
+        assert!(text.contains(expected), "{text}");
+    }
+}

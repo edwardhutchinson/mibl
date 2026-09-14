@@ -62,8 +62,8 @@ impl Mib {
     pub fn packet(&self, spid: PacketSpid) -> Lookup<PacketDescription> {
         self.catalog.packet(spid)
     }
-    pub fn command(&self, _name: &CommandName) -> Lookup<CommandDescription> {
-        todo!("interface only")
+    pub fn command(&self, name: &CommandName) -> Lookup<CommandDescription> {
+        self.catalog.command(name)
     }
     /// Case-insensitive names/descriptions and SPIDs. No cap. Blank query is empty.
     /// Rank exact identities, prefixes, then fuzzy matches, names before descriptions.

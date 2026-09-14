@@ -5,7 +5,8 @@ Status: accepted by the maintainer at commit `ef6ea86`; issue #8 is closed.
 The complete interface set remains the contract for the implementation slices.
 Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
 Issue #10 implements fixed packet lookup and containing occurrences.
-Command, search and variable packet operations remain explicit placeholders.
+Issue #13 implements basic command lookup. Search and variable packet operations
+remain explicit placeholders.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -263,3 +264,34 @@ no renderer wrapping, colors, pager or terminal detection. Redirected and termin
 stdout are identical. Exact lookup, duplicate candidates, status-1 silent misses,
 status-0 found/ambiguous results, visible status-2 errors and --debug behavior
 retain their accepted semantics. Future rendering tickets follow these conventions.
+
+## Issue #13 implementation coverage
+
+CCF, CDF and CPC use the shared reader policies. CCF roots and CDF/CPC supporting
+indexes preserve duplicates. Public `Mib::command` returns owned descriptions;
+`command NAME` uses the same overview, details, candidate and exit conventions
+as the parameter and packet verbs.
+
+The catalog sorts basic elements by CDF_BIT and source. Argument widths use the
+shared PTC/PFC mapping; fixed areas use CDF_ELLEN. Duplicate positions and width
+disagreements retain structured evidence. Missing or ambiguous CPC definitions
+leave the root found and affect only the associated argument information.
+
+CPC identity and clock-reference fields preserve both known spellings. Columns
+16 and 17 retain physical presence and candidate meanings, with unavailable
+interpretations and no inferred endian default. Literal values remain recorded
+text with their representation and defining row. CPC defaults and CDF values
+stay separate; CDF_INTER=D refers to the CPC default, while T carries a runtime
+telemetry declaration with finite PCF targets. The CDF definition retains the
+static fallback text. Editable arguments without values and variable widths
+explicitly require runtime input.
+
+Header expansion, repetition trees and supporting argument rules remain outside
+this slice. Repetition declarations retain all basic elements and report the
+unimplemented structure. Missing or unreadable CDF tables produce unavailable
+layout information rather than a falsely empty layout.
+
+Cross-check: existing reader rows produce every field in the existing command
+model; public Mib results and CLI checks exercise lookup, ordering, partial links,
+width conflicts, defaults and schema ambiguity using synthetic data. No public
+interface amendment is needed for this slice.

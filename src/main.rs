@@ -47,14 +47,18 @@ fn configure(
     }
     let request = match args {
         [verb, name]
-            if verb == "parameter"
+            if (verb == "parameter" || verb == "command")
                 && !name.is_empty()
                 && !name.to_string_lossy().starts_with('-') =>
         {
-            let name = name.to_str().ok_or_else(|| {
-                ConfigurationError::InvalidArguments("parameter name must be UTF-8".into())
-            })?;
-            Request::Parameter(ParameterName(name.into()))
+            let name = name
+                .to_str()
+                .ok_or_else(|| ConfigurationError::InvalidArguments("name must be UTF-8".into()))?;
+            if verb == "command" {
+                Request::Command(CommandName(name.into()))
+            } else {
+                Request::Parameter(ParameterName(name.into()))
+            }
         }
         [verb, spid] if verb == "packet" => {
             let spid = spid
@@ -70,7 +74,8 @@ fn configure(
         }
         _ => {
             return Err(ConfigurationError::InvalidArguments(
-                "usage: mibl [--debug] [--details] parameter NAME | packet SPID".into(),
+                "usage: mibl [--debug] [--details] parameter NAME | packet SPID | command NAME"
+                    .into(),
             ));
         }
     };
@@ -102,6 +107,7 @@ enum Response {
 fn query(mib: &Mib, request: &Request) -> Response {
     match request {
         Request::Parameter(name) => Response::Parameter(mib.parameter(name)),
+        Request::Command(name) => Response::Command(mib.command(name)),
         Request::Packet(spid) => Response::Packet(mib.packet(*spid)),
         _ => todo!("request is not exposed until its owning viewer slice"),
     }
@@ -113,8 +119,13 @@ fn render(
     stdout: &mut dyn io::Write,
 ) -> Result<ExitCode, io::Error> {
     match response {
-        Response::Parameter(Lookup::NotFound(_)) | Response::Packet(Lookup::NotFound(_)) => {
+        Response::Command(Lookup::NotFound(_))
+        | Response::Parameter(Lookup::NotFound(_))
+        | Response::Packet(Lookup::NotFound(_)) => {
             return Ok(ExitCode::from(1));
+        }
+        Response::Command(Lookup::Found(description)) => {
+            render::command(description, details, stdout)?
         }
         Response::Parameter(Lookup::Found(description)) => {
             render::parameter(description, details, stdout)?
@@ -122,7 +133,8 @@ fn render(
         Response::Packet(Lookup::Found(description)) => {
             render::packet(description, details, stdout)?
         }
-        Response::Parameter(Lookup::Ambiguous(candidates))
+        Response::Command(Lookup::Ambiguous(candidates))
+        | Response::Parameter(Lookup::Ambiguous(candidates))
         | Response::Packet(Lookup::Ambiguous(candidates)) => {
             render::candidates(
                 std::iter::once(candidates.first.as_ref())
