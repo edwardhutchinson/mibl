@@ -29,9 +29,9 @@ claim that unsupported calibration or variable-layout joins are implemented.
 ## A: overview by default, evidence on request
 
 Accepted syntax: `mibl [--debug] [--details] parameter NAME` or
-`mibl [--debug] [--details] packet SPID`. Each flag may occur once, in either
-order before the verb. No short alias, flags after the verb, or explicit overview
-flag. Without `--details`, show the overview. `--debug` independently controls
+`mibl [--debug] [--details] packet SPID`. As amended by #21, flags may appear
+before or after the verb or identity, and repeated flags are idempotent.
+No short alias or explicit overview flag. Without `--details`, show the overview. `--debug` independently controls
 loading/query diagnostics on stderr and never changes result verbosity.
 
 Normal parameter overview:

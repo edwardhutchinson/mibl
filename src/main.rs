@@ -1,6 +1,7 @@
 //! Application-owned configuration, tracing, rendering and exit status.
 #![allow(dead_code)] // Other request/response variants belong to later viewer slices.
 mod render;
+use clap::{Arg, ArgAction, Command};
 use mibl::{LoadError, Mib, model::*};
 use std::{ffi::OsString, io, path::PathBuf, process::ExitCode};
 struct Configuration {
@@ -18,71 +19,100 @@ enum Request {
 enum ConfigurationError {
     MissingMibDir,
     EmptyMibDir,
-    InvalidArguments(String),
+    Arguments(clap::Error),
 }
 enum CliError {
     Configuration(ConfigurationError),
     Load(LoadError),
     Output(io::Error),
 }
-/// Preserve non-Unicode directory paths.
+fn cli() -> Command {
+    Command::new("mibl")
+        .version(env!("CARGO_PKG_VERSION"))
+        .about("Inspect SCOS MIB definitions")
+        .subcommand_required(true)
+        .args_override_self(true)
+        .arg(
+            Arg::new("debug")
+                .long("debug")
+                .global(true)
+                .action(ArgAction::SetTrue)
+                .help("Show loading and query diagnostics"),
+        )
+        .arg(
+            Arg::new("details")
+                .long("details")
+                .global(true)
+                .action(ArgAction::SetTrue)
+                .help("Show recorded fields and problem evidence"),
+        )
+        .subcommand(
+            Command::new("parameter")
+                .about("Look up a monitoring parameter")
+                .arg(
+                    Arg::new("NAME")
+                        .required(true)
+                        .value_parser(clap::builder::NonEmptyStringValueParser::new()),
+                ),
+        )
+        .subcommand(
+            Command::new("packet")
+                .about("Look up a telemetry packet definition")
+                .arg(Arg::new("SPID").required(true).value_parser(parse_spid)),
+        )
+        .subcommand(
+            Command::new("command")
+                .about("Look up a telecommand definition")
+                .arg(
+                    Arg::new("NAME")
+                        .required(true)
+                        .value_parser(clap::builder::NonEmptyStringValueParser::new()),
+                ),
+        )
+}
+
+fn parse_spid(value: &str) -> Result<u64, String> {
+    if !value.is_empty()
+        && value.bytes().all(|b| b.is_ascii_digit())
+        && let Ok(spid) = value.parse()
+    {
+        return Ok(spid);
+    }
+    Err("packet SPID must be an unsigned integer".into())
+}
+
+/// Preserve non-Unicode directory paths, resolving them only for lookup requests.
 fn configure(
     arguments: Vec<OsString>,
     mib_dir: Option<OsString>,
 ) -> Result<Configuration, ConfigurationError> {
+    let matches = cli()
+        .try_get_matches_from(std::iter::once(OsString::from("mibl")).chain(arguments))
+        .map_err(ConfigurationError::Arguments)?;
     let directory = mib_dir.ok_or(ConfigurationError::MissingMibDir)?;
     if directory.is_empty() {
         return Err(ConfigurationError::EmptyMibDir);
     }
-    let mut args = arguments.as_slice();
-    let mut debug = false;
-    let mut details = false;
-    while let Some(flag) = args.first() {
-        match flag.to_str() {
-            Some("--debug") if !debug => debug = true,
-            Some("--details") if !details => details = true,
-            _ => break,
-        }
-        args = &args[1..];
-    }
-    let request = match args {
-        [verb, name]
-            if (verb == "parameter" || verb == "command")
-                && !name.is_empty()
-                && !name.to_string_lossy().starts_with('-') =>
-        {
-            let name = name
-                .to_str()
-                .ok_or_else(|| ConfigurationError::InvalidArguments("name must be UTF-8".into()))?;
-            if verb == "command" {
-                Request::Command(CommandName(name.into()))
-            } else {
-                Request::Parameter(ParameterName(name.into()))
-            }
-        }
-        [verb, spid] if verb == "packet" => {
-            let spid = spid
-                .to_str()
-                .filter(|s| !s.is_empty() && s.bytes().all(|b| b.is_ascii_digit()))
-                .and_then(|s| s.parse().ok())
-                .ok_or_else(|| {
-                    ConfigurationError::InvalidArguments(
-                        "packet SPID must be an unsigned integer".into(),
-                    )
-                })?;
-            Request::Packet(PacketSpid(spid))
-        }
-        _ => {
-            return Err(ConfigurationError::InvalidArguments(
-                "usage: mibl [--debug] [--details] parameter NAME | packet SPID | command NAME"
-                    .into(),
-            ));
-        }
+    let request = match matches.subcommand() {
+        Some(("parameter", args)) => Request::Parameter(ParameterName(
+            args.get_one::<String>("NAME")
+                .expect("required NAME")
+                .clone(),
+        )),
+        Some(("command", args)) => Request::Command(CommandName(
+            args.get_one::<String>("NAME")
+                .expect("required NAME")
+                .clone(),
+        )),
+        Some(("packet", args)) => Request::Packet(PacketSpid(
+            *args.get_one::<u64>("SPID").expect("required SPID"),
+        )),
+        _ => unreachable!("clap requires a declared subcommand"),
     };
     Ok(Configuration {
         directory: directory.into(),
-        debug,
-        details,
+        debug: matches.get_flag("debug"),
+        details: matches.get_flag("details"),
         request,
     })
 }
@@ -142,6 +172,7 @@ fn render(
                     .chain(candidates.rest.iter()),
                 stdout,
             )?;
+            return Ok(ExitCode::from(3));
         }
         _ => todo!("response is not exposed until its owning viewer slice"),
     }
@@ -152,7 +183,17 @@ fn report_error(error: &CliError, stderr: &mut dyn io::Write) -> ExitCode {
     let message = match error {
         CliError::Configuration(ConfigurationError::MissingMibDir) => "MIB_DIR is not set".into(),
         CliError::Configuration(ConfigurationError::EmptyMibDir) => "MIB_DIR is empty".into(),
-        CliError::Configuration(ConfigurationError::InvalidArguments(message)) => message.clone(),
+        CliError::Configuration(ConfigurationError::Arguments(error)) => {
+            let result = if error.use_stderr() {
+                write!(stderr, "{error}")
+            } else {
+                error.print()
+            };
+            return match result {
+                Ok(()) => ExitCode::from(error.exit_code() as u8),
+                Err(error) => report_error(&CliError::Output(error), stderr),
+            };
+        }
         CliError::Load(error) => error.to_string(),
         CliError::Output(error) => format!("cannot write output: {error}"),
     };

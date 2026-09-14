@@ -238,8 +238,9 @@ that ticket ships.
 
 `mibl [--debug] [--details] parameter NAME` and
 `mibl [--debug] [--details] packet SPID` use overview output by default.
-Each flag may occur once, in either order before the verb. No short aliases,
-flags after the verb or explicit overview flag are accepted. `--debug` remains
+As amended by #21, flags may appear before or after the verb or identity,
+and repeated flags are idempotent. No short aliases or explicit overview flag
+are accepted. `--debug` remains
 independent stderr diagnostics and does not change result verbosity.
 
 Overview shows identity, description, root source, encoding/units for parameters,
@@ -262,8 +263,19 @@ overview. Reader, catalog and public library information are unchanged.
 Use aligned spaces, full untruncated printable text and escaped controls, with
 no renderer wrapping, colors, pager or terminal detection. Redirected and terminal
 stdout are identical. Exact lookup, duplicate candidates, status-1 silent misses,
-status-0 found/ambiguous results, visible status-2 errors and --debug behavior
-retain their accepted semantics. Future rendering tickets follow these conventions.
+status-0 found results, visible status-2 errors and --debug behavior
+retain their accepted semantics. Issue #21 changes root ambiguous matches to
+status 3, preserving their candidate output. Future rendering tickets follow these conventions.
+
+## Issue #21 CLI parsing amendment
+
+Clap v4 owns argument validation and help/version output. `--help` and
+`--version` succeed without resolving `MIB_DIR`. Lookup requests still resolve
+`MIB_DIR` as an OS string, preserving non-Unicode directory paths. Packet SPIDs
+accept only nonempty ASCII digits within the u64 range, including leading zeros.
+The builder API enables std, usage, error-context, help and suggestions; derive
+macros are unnecessary. Completion and man-page generators can consume this
+command definition in a future tooling change.
 
 ## Issue #13 implementation coverage
 

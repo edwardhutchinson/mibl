@@ -52,7 +52,7 @@ fn both_absence_reasons_are_silent_and_ambiguity_shows_all_sources() {
     assert!(unavailable.stdout.is_empty() && unavailable.stderr.is_empty());
     dir.write("pcf.dat", &format!("{PARAMETER}\n{PARAMETER}"));
     let ambiguous = run(&dir, &["parameter", "TEMP"]);
-    assert!(ambiguous.status.success());
+    assert_eq!(ambiguous.status.code(), Some(3));
     assert!(ambiguous.stderr.is_empty());
     let text = String::from_utf8(ambiguous.stdout).unwrap();
     assert!(text.starts_with("Kind") && text.lines().next().unwrap().contains("Source"));
@@ -91,7 +91,7 @@ fn configuration_loading_and_argument_errors_are_visible_without_debug() {
     assert!(
         String::from_utf8(invalid.stderr)
             .unwrap()
-            .contains("usage:")
+            .contains("Usage:")
     );
     std::fs::remove_dir_all(dir.path()).unwrap();
     let inaccessible = run(&dir, &["parameter", "TEMP"]);
@@ -195,7 +195,7 @@ fn packet_absence_ambiguity_and_malformed_rows_follow_cli_policy() {
     let row = "3\t25\t42\t0\t0\t89000\tHousekeeping\t\t-1\t10";
     dir.write("pid.dat", &format!("bad\n{row}\n{row}"));
     let output = run(&dir, &["packet", "89000"]);
-    assert!(output.status.success());
+    assert_eq!(output.status.code(), Some(3));
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(text.starts_with("Kind") && text.lines().next().unwrap().contains("Source"));
     assert!(text.contains("pid.dat:2") && text.contains("pid.dat:3"));
@@ -226,7 +226,7 @@ fn packet_without_additional_criteria_still_renders_pic_fields() {
 }
 
 #[test]
-fn overview_is_default_and_details_and_debug_are_independent_prefix_flags() {
+fn overview_is_default_and_details_and_debug_are_independent_global_flags() {
     let dir = Fixture::new();
     dir.write("pcf.dat", PARAMETER);
     let overview = run(&dir, &["parameter", "TEMP"]);
@@ -253,10 +253,28 @@ fn overview_is_default_and_details_and_debug_are_independent_prefix_flags() {
     }
     for args in [
         vec!["--details", "--details", "parameter", "TEMP"],
+        vec!["parameter", "TEMP", "--details"],
+        vec!["parameter", "--details", "TEMP"],
+        vec!["--details", "parameter", "TEMP", "--details"],
+    ] {
+        let output = run(&dir, &args);
+        assert!(output.status.success(), "{args:?}");
+        assert_eq!(output.stdout, details.stdout);
+        assert!(output.stderr.is_empty());
+    }
+    for args in [
         vec!["--debug", "--debug", "parameter", "TEMP"],
+        vec!["parameter", "--debug", "TEMP", "--debug"],
+        vec!["--debug", "parameter", "TEMP", "--debug"],
+    ] {
+        let output = run(&dir, &args);
+        assert!(output.status.success(), "{args:?}");
+        assert_eq!(output.stdout, overview.stdout);
+        assert!(!output.stderr.is_empty());
+    }
+    for args in [
         vec!["--overview", "parameter", "TEMP"],
         vec!["-d", "parameter", "TEMP"],
-        vec!["parameter", "TEMP", "--details"],
         vec!["parameter", "--details"],
     ] {
         let output = run(&dir, &args);
@@ -675,7 +693,8 @@ fn command_misses_are_silent_duplicates_are_candidates_and_debug_explains_loadin
     assert_eq!(missing.status.code(), Some(1));
     assert!(missing.stdout.is_empty() && missing.stderr.is_empty());
     let output = run(&dir, &["command", "DEMO_TC"]);
-    assert!(output.status.success() && output.stderr.is_empty());
+    assert_eq!(output.status.code(), Some(3));
+    assert!(output.stderr.is_empty());
     let text = String::from_utf8(output.stdout).unwrap();
     assert!(text.starts_with("Kind") && text.contains("ccf.dat:2") && text.contains("ccf.dat:3"));
     let output = run(&dir, &["--debug", "command", "missing"]);
@@ -689,5 +708,92 @@ fn command_misses_are_silent_duplicates_are_candidates_and_debug_explains_loadin
         "NoMatchingIdentity",
     ] {
         assert!(text.contains(expected), "{text}");
+    }
+}
+
+#[test]
+fn help_and_version_work_without_a_mib_directory() {
+    for args in [
+        vec!["--help"],
+        vec!["parameter", "--help"],
+        vec!["packet", "--help"],
+        vec!["command", "--help"],
+        vec!["--version"],
+    ] {
+        for directory in [None, Some("")] {
+            let mut command = Command::new(env!("CARGO_BIN_EXE_mibl"));
+            command.env_remove("MIB_DIR").args(&args);
+            if let Some(directory) = directory {
+                command.env("MIB_DIR", directory);
+            }
+            let output = command.output().unwrap();
+            assert!(output.status.success(), "{args:?}");
+            assert!(output.stderr.is_empty());
+            let text = String::from_utf8(output.stdout).unwrap();
+            if args == ["--version"] {
+                assert_eq!(text, format!("mibl {}\n", env!("CARGO_PKG_VERSION")));
+            } else {
+                assert!(
+                    text.contains("Usage:")
+                        && text.contains("--debug")
+                        && text.contains("--details"),
+                    "{text}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn invalid_arguments_are_errors_and_subcommand_typos_have_suggestions() {
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    for args in [
+        vec![],
+        vec!["parameter", ""],
+        vec!["command", ""],
+        vec!["parameter", "TEMP", "extra"],
+        vec!["packet", ""],
+        vec!["packet", "１"],
+        vec!["packet", "1.0"],
+        vec!["packet", " 1"],
+        vec!["packet", "1 "],
+        vec!["packet", "--", "-1"],
+        vec!["packet", "+1"],
+        vec!["packet", "18446744073709551616"],
+    ] {
+        let output = run(&dir, &args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert!(output.stdout.is_empty() && !output.stderr.is_empty());
+    }
+    for spid in ["0", "000", "18446744073709551615"] {
+        let output = run(&dir, &["packet", spid]);
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty() && output.stderr.is_empty());
+    }
+    let output = run(&dir, &["paramete", "TEMP"]);
+    assert_eq!(output.status.code(), Some(2));
+    let text = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        text.contains("similar subcommand") && text.contains("parameter"),
+        "{text}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn non_unicode_lookup_arguments_are_rejected() {
+    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    for verb in ["parameter", "packet", "command"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_mibl"))
+            .env("MIB_DIR", dir.path())
+            .arg(verb)
+            .arg(OsString::from_vec(vec![0xff]))
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty() && !output.stderr.is_empty());
     }
 }
