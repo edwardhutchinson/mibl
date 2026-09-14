@@ -7,6 +7,7 @@ its exact, case-sensitive name, a packet by SPID, or a telecommand by name:
 MIB_DIR=/path/to/mib cargo run -- packet 89000
 MIB_DIR=/path/to/mib cargo run -- parameter TEMP
 MIB_DIR=/path/to/mib cargo run -- command DEMO_TC
+MIB_DIR=/path/to/mib cargo run -- search mode --scope all
 MIB_DIR=/path/to/mib cargo run -- --debug parameter TEMP
 ```
 
@@ -19,10 +20,18 @@ MIB_DIR=/path/to/mib cargo run -- --details parameter TEMP
 MIB_DIR=/path/to/mib cargo run -- --debug --details packet 89000
 ```
 
-Syntax is `mibl [--debug] [--details] parameter NAME` or
-`mibl [--debug] [--details] packet SPID` or `mibl [--debug] [--details] command NAME`. Each flag is allowed once, in either
-order before the verb. `--debug` enables loading and lookup events on stderr
-without changing stdout. There are no short aliases or flags after the verb.
+Syntax is `mibl [OPTIONS] parameter NAME`, `packet SPID`, `command NAME`,
+or `search QUERY [--scope parameters|packets|commands|all]`. Search defaults to
+all three kinds. Global `--debug` and `--details` flags work before or after the
+verb. `--debug` sends loading and query events to stderr without changing stdout.
+
+Search matches names and descriptions case-insensitively, including packet SPIDs.
+Exact identities rank first, identity prefixes next, then fuzzy matches, favoring
+names over descriptions. Ties use kind, identity and source order, with numeric
+packet identities. All matches appear in a plain candidate table with source
+locations, including duplicates. Blank or unmatched queries print only the table
+header and succeed. `--details` does not change search output. Copy a returned
+identity into the corresponding exact lookup command; search never selects one.
 
 Details print each reachable definition once, with stable IDs and references
 for its uses. Packet details include parameter descriptions and units. Parameter
@@ -34,7 +43,7 @@ Tables use spaces aligned by Unicode display width. Printable text is preserved
 in full, controls are escaped, and output is identical on terminals and when
 redirected. There is no wrapping, truncation, color or pager.
 
-Duplicate roots produce a candidate table in either mode and exit with status 0.
+Duplicate roots produce a candidate table in either mode and exit with status 3.
 Found results with local problems also exit with status 0. Missing identities
 exit silently with status 1 outside debug mode. Configuration, loading and output
 errors print to stderr and exit with status 2.
@@ -70,8 +79,8 @@ retain their raw text and candidate meanings without guessing description or
 endian interpretation.
 
 Variable packet layouts, calibration expansion, command headers, nested command
-repetitions, supporting argument rules and search belong to later slices.
-Search still has an explicit library placeholder. Unimplemented relationships
+repetitions and supporting argument rules belong to later slices.
+Unimplemented relationships
 carry unsupported-interpretation problems.
 
 The [interface contract](docs/interfaces/contract.md) describes the complete

@@ -6,6 +6,7 @@ use crate::{
 use std::collections::HashMap;
 mod commands;
 mod packets;
+mod search;
 /// Stable within this snapshot; points into retained root rows, never a public handle.
 pub(crate) struct RowId(usize);
 pub(crate) struct Catalog {
@@ -72,9 +73,6 @@ impl Catalog {
                 Lookup::NotFound(reason)
             }
         }
-    }
-    pub(crate) fn search(&self, _query: &str, _scope: SearchScope) -> Vec<Candidate> {
-        todo!("interface only")
     }
 }
 

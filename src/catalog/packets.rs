@@ -76,7 +76,7 @@ impl Catalog {
         }
     }
 
-    fn packet_candidate(&self, row: &Row<Pid>) -> Candidate {
+    pub(super) fn packet_candidate(&self, row: &Row<Pid>) -> Candidate {
         let summary = self.packet_summary(row);
         Candidate {
             identity: Identity::Packet(summary.spid),

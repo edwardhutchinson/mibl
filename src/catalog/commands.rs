@@ -65,7 +65,7 @@ impl Catalog {
         }
     }
 }
-fn command_candidate(row: &Row<Ccf>) -> Candidate {
+pub(super) fn command_candidate(row: &Row<Ccf>) -> Candidate {
     Candidate {
         identity: Identity::Command(
             row.cells

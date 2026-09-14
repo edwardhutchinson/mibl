@@ -797,3 +797,51 @@ fn non_unicode_lookup_arguments_are_rejected() {
         assert!(output.stdout.is_empty() && !output.stderr.is_empty());
     }
 }
+
+#[test]
+fn search_mode_walkthrough_always_uses_candidate_table_and_reuses_identities() {
+    let dir = Fixture::new();
+    dir.write("pcf.dat", &PARAMETER.replace("Temperature", "Mode"));
+    dir.write("pid.dat", "3\t25\t42\t7\t0\t89000\tMode\t\t-1\t10");
+    dir.write("ccf.dat", "SET_STATE\tMode\t\t\t\tHEADER");
+    let all = run(&dir, &["search", "MoDe", "--scope", "all"]);
+    assert!(all.status.success(), "{:?}", all);
+    assert!(all.stderr.is_empty());
+    let text = String::from_utf8(all.stdout.clone()).unwrap();
+    assert!(text.starts_with("Kind"));
+    assert_eq!(text.lines().count(), 4);
+    for (scope, kind, identity) in [
+        ("parameters", "parameter", "TEMP"),
+        ("packets", "packet", "89000"),
+        ("commands", "command", "SET_STATE"),
+    ] {
+        let output = run(&dir, &["search", "mode", "--scope", scope]);
+        assert!(output.status.success());
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(text.lines().count(), 2);
+        assert!(text.contains(kind) && text.contains(identity));
+        assert!(run(&dir, &[kind, identity]).status.success());
+    }
+    assert_eq!(all.stdout, run(&dir, &["search", "mode"]).stdout);
+    assert_eq!(
+        all.stdout,
+        run(&dir, &["--details", "search", "mode"]).stdout
+    );
+    let debug = run(&dir, &["search", "mode", "--debug"]);
+    assert_eq!(all.stdout, debug.stdout);
+    assert!(!debug.stderr.is_empty());
+    for query in ["", " \t ", "zzzzzzzz"] {
+        let empty = run(&dir, &["search", query]);
+        assert!(empty.status.success());
+        assert!(empty.stderr.is_empty());
+        assert_eq!(String::from_utf8(empty.stdout).unwrap().lines().count(), 1);
+    }
+    dir.write("pcf.dat", &format!("{PARAMETER}\n{PARAMETER}"));
+    assert_eq!(
+        run(&dir, &["search", "temp"]).stdout,
+        run(&dir, &["parameter", "TEMP"]).stdout
+    );
+    for args in [vec!["search"], vec!["search", "mode", "--scope", "invalid"]] {
+        assert_eq!(run(&dir, &args).status.code(), Some(2));
+    }
+}

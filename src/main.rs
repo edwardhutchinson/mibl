@@ -47,6 +47,18 @@ fn cli() -> Command {
                 .help("Show recorded fields and problem evidence"),
         )
         .subcommand(
+            Command::new("search")
+                .about("Fuzzy-search names, descriptions and packet SPIDs")
+                .arg(Arg::new("QUERY").required(true))
+                .arg(
+                    Arg::new("scope")
+                        .long("scope")
+                        .value_parser(["parameters", "packets", "commands", "all"])
+                        .default_value("all")
+                        .help("Kinds of definitions to search"),
+                ),
+        )
+        .subcommand(
             Command::new("parameter")
                 .about("Look up a monitoring parameter")
                 .arg(
@@ -107,6 +119,23 @@ fn configure(
         Some(("packet", args)) => Request::Packet(PacketSpid(
             *args.get_one::<u64>("SPID").expect("required SPID"),
         )),
+        Some(("search", args)) => Request::Search {
+            query: args
+                .get_one::<String>("QUERY")
+                .expect("required QUERY")
+                .clone(),
+            scope: match args
+                .get_one::<String>("scope")
+                .expect("default scope")
+                .as_str()
+            {
+                "parameters" => SearchScope::Parameters,
+                "packets" => SearchScope::Packets,
+                "commands" => SearchScope::Commands,
+                "all" => SearchScope::All,
+                _ => unreachable!("clap validates scope"),
+            },
+        },
         _ => unreachable!("clap requires a declared subcommand"),
     };
     Ok(Configuration {
@@ -139,7 +168,7 @@ fn query(mib: &Mib, request: &Request) -> Response {
         Request::Parameter(name) => Response::Parameter(mib.parameter(name)),
         Request::Command(name) => Response::Command(mib.command(name)),
         Request::Packet(spid) => Response::Packet(mib.packet(*spid)),
-        _ => todo!("request is not exposed until its owning viewer slice"),
+        Request::Search { query, scope } => Response::Search(mib.search(query, *scope)),
     }
 }
 
@@ -174,7 +203,7 @@ fn render(
             )?;
             return Ok(ExitCode::from(3));
         }
-        _ => todo!("response is not exposed until its owning viewer slice"),
+        Response::Search(candidates) => render::candidates(candidates.iter(), stdout)?,
     }
     Ok(ExitCode::SUCCESS)
 }

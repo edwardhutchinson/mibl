@@ -1,4 +1,4 @@
-//! Read-only SCOS MIB snapshots. Parameter and fixed packet lookups are implemented.
+//! Read-only SCOS MIB snapshots. Parameter, fixed packet and basic command lookups, plus fuzzy search.
 #![allow(dead_code)] // Declarations are intentionally unused until implementation tickets.
 mod catalog;
 pub mod model;
@@ -68,7 +68,7 @@ impl Mib {
     /// Case-insensitive names/descriptions and SPIDs. No cap. Blank query is empty.
     /// Rank exact identities, prefixes, then fuzzy matches, names before descriptions.
     /// Ties: parameter/packet/command, identity (SPIDs numeric), source.
-    pub fn search(&self, _query: &str, _scope: SearchScope) -> Vec<Candidate> {
-        todo!("interface only")
+    pub fn search(&self, query: &str, scope: SearchScope) -> Vec<Candidate> {
+        self.catalog.search(query, scope)
     }
 }
