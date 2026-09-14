@@ -344,3 +344,23 @@ use TPSD/POS/NAME, repetition, selection and offset cells and preserve display
 fields in definitions. Public packet and parameter results terminate at parameter
 summaries and packet summaries respectively. The CLI accesses only those public
 results. Synthetic public-library and CLI tests cover these exchanges.
+
+### Enclosing definition amendment
+
+`ParameterOccurrence.enclosing_definitions: Vec<Definition>` preserves the
+recorded declarations for its enclosure path, outermost first. The catalog copies
+each VPD group definition into its children's occurrences; fixed PLF repetition
+uses the occurrence's PLF definition. Parameter lookup retains this collection
+when flattening a layout. The renderer registers these definitions before
+rendering enclosure interpretations, so reverse lookup can show all group fields.
+
+Cross-check: VPD/PLF reader definitions already supply the required recorded data.
+The catalog produces an owned collection with one definition per enclosure; both
+packet and parameter views consume it through the public occurrence. Definitions
+contain no relationship expansion, so the new collection remains finite. This
+closes the review's missing producer-to-consumer path without requiring a query
+from the renderer.
+
+Duplicate variable PID definitions produce separate containing-packet entries.
+Each entry retains its own root summary and locations, plus an ambiguous-identity
+problem listing the other candidates. Entries sort by SPID and root source.

@@ -94,6 +94,7 @@ fn nested_summary_problems_keep_known_values_and_all_occurrence_contexts() {
                     constraints: vec![],
                 },
                 enclosing: vec![],
+                enclosing_definitions: vec![],
             })
             .collect(),
     }]);

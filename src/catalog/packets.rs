@@ -242,6 +242,9 @@ impl Catalog {
                 continue;
             }
             if count > 1 {
+                occurrence
+                    .enclosing_definitions
+                    .push(row.definition.clone());
                 occurrence.enclosing.push(Enclosure::Repetition(info(
                     Some(Repetition::Fixed {
                         count: count as u64,
@@ -365,6 +368,7 @@ impl Catalog {
                 constraints: vec![],
             },
             enclosing: vec![],
+            enclosing_definitions: vec![],
         }
     }
 

@@ -91,7 +91,6 @@ impl Catalog {
             .iter()
             .map(|id| self.records.vpd.rows()[id.0].cells.tpsd.value.unwrap())
             .collect();
-        let mut grouped = std::collections::BTreeMap::<PacketSpid, Vec<ParameterOccurrence>>::new();
         for tpsd in tpsds {
             let packets = self.related(Table::Pid, tpsd.to_string());
             if packets.is_empty() {
@@ -118,46 +117,46 @@ impl Catalog {
                 }
             }
             for id in packets {
-                let packet = &self.records.pid.rows()[id.0];
-                let layout = self.variable_layout(packet);
-                let occurrences = grouped.entry(packet.cells.spid.value.unwrap()).or_default();
+                let root = &self.records.pid.rows()[id.0];
+                let layout = self.variable_layout(root);
+                let mut occurrences = Vec::new();
                 if let Some(layout) = layout.value {
-                    collect_occurrences(layout, name, occurrences);
+                    collect_occurrences(layout, name, &mut occurrences);
                 }
                 result.problems.extend(layout.problems);
+                if occurrences.is_empty() {
+                    continue;
+                }
+                let spid = root.cells.spid.value.unwrap();
+                let rows: Vec<_> = self.packets[&spid]
+                    .iter()
+                    .map(|id| &self.records.pid.rows()[id.0])
+                    .collect();
+                let mut packet = resolve(
+                    &rows,
+                    Reference::Root(Identity::Packet(spid)),
+                    &root.definition.source,
+                    |r| Some(self.packet_summary(r)),
+                );
+                packet.value = Some(self.packet_summary(root));
+                let entries = result.value.get_or_insert_with(Vec::new);
+                if rows.len() == 1
+                    && let Some(existing) = entries
+                        .iter_mut()
+                        .find(|e| e.packet.value.as_ref().is_some_and(|p| p.spid == spid))
+                {
+                    existing.occurrences.extend(occurrences);
+                } else {
+                    entries.push(PacketOccurrences {
+                        packet,
+                        occurrences,
+                    });
+                }
             }
         }
         let entries = result.value.get_or_insert_with(Vec::new);
-        for (spid, occurrences) in grouped {
-            if occurrences.is_empty() {
-                continue;
-            }
-            let rows: Vec<_> = self.packets[&spid]
-                .iter()
-                .map(|id| &self.records.pid.rows()[id.0])
-                .collect();
-            let packet = resolve(
-                &rows,
-                Reference::Root(Identity::Packet(spid)),
-                &occurrences[0].definition.source,
-                |r| Some(self.packet_summary(r)),
-            );
-            if let Some(existing) = entries.iter_mut().find(|e| {
-                e.packet
-                    .sources
-                    .iter()
-                    .any(|s| rows.iter().any(|r| &r.definition.source == s))
-            }) {
-                existing.occurrences.extend(occurrences);
-            } else {
-                entries.push(PacketOccurrences {
-                    packet,
-                    occurrences,
-                });
-            }
-        }
         entries.sort_by_key(|e| {
-            e.packet.value.as_ref().map(|p| p.spid).or_else(|| {
+            let spid = e.packet.value.as_ref().map(|p| p.spid).or_else(|| {
                 e.packet.problems.iter().find_map(|p| match &p.kind {
                     ProblemKind::MissingReference {
                         reference: Reference::Root(Identity::Packet(spid)),
@@ -168,7 +167,15 @@ impl Catalog {
                     } => Some(*spid),
                     _ => None,
                 })
-            })
+            });
+            (
+                spid,
+                e.packet
+                    .value
+                    .as_ref()
+                    .map(|p| p.definition.source.clone())
+                    .or_else(|| e.packet.sources.first().cloned()),
+            )
         });
     }
 
@@ -264,7 +271,14 @@ impl Catalog {
                         )
                     };
                 }
-                update_enclosure(&mut children, enclosing.len(), &repetition);
+                update_enclosure(&mut children, enclosing.len(), &repetition, &row.definition);
+                cursor.sources.extend(child_cursor.sources.clone());
+                cursor.sources.sort();
+                cursor.sources.dedup();
+                cursor.problems.extend(child_cursor.problems.clone());
+                if stride.is_none() {
+                    cursor.constraints.extend(child_cursor.constraints.clone());
+                }
                 cursor.bits = if complete && fixed > 0 {
                     cursor.bits.zip(stride).and_then(|(start, stride)| {
                         start.checked_add(i128::from(stride) * i128::from(fixed))
@@ -418,10 +432,17 @@ impl Catalog {
         let end = start
             .zip(padded.value)
             .and_then(|(n, w)| n.checked_add(i128::from(w)));
-        let value_start = end
-            .zip(encoded_bits.value)
-            .filter(|_| !padding_conflict)
-            .map(|(n, w)| n - i128::from(w));
+        let unpadded = !rows.is_empty()
+            && rows
+                .iter()
+                .all(|p| p.cells.width.value.is_none() && p.cells.ptc.value != Some(11));
+        let value_start = if unpadded {
+            start
+        } else {
+            end.zip(encoded_bits.value)
+                .filter(|_| !padding_conflict)
+                .map(|(n, w)| n - i128::from(w))
+        };
         let value = value_start.and_then(|n| {
             if cursor.relative {
                 i64::try_from(n).ok().map(Position::RelativeBits)
@@ -482,6 +503,7 @@ impl Catalog {
                 constraints,
             },
             enclosing: enclosing.to_vec(),
+            enclosing_definitions: vec![],
         };
         cursor.sources.extend(occurrence.parameter.sources.clone());
         cursor.sources.sort();
@@ -537,12 +559,16 @@ fn update_enclosure(
     layout: &mut [Layout<ParameterOccurrence>],
     depth: usize,
     repetition: &Info<Repetition>,
+    definition: &Definition,
 ) {
     for node in layout {
         match node {
-            Layout::Element(o) => o.enclosing[depth] = Enclosure::Repetition(repetition.clone()),
+            Layout::Element(o) => {
+                o.enclosing[depth] = Enclosure::Repetition(repetition.clone());
+                o.enclosing_definitions.insert(0, definition.clone());
+            }
             Layout::Repeat { children, .. } | Layout::Conditional { children, .. } => {
-                update_enclosure(children, depth, repetition)
+                update_enclosure(children, depth, repetition, definition)
             }
         }
     }

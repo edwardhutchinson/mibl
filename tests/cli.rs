@@ -880,6 +880,8 @@ fn variable_packet_cli_shows_group_boundaries_and_runtime_dependencies() {
         if args[1] == "packet" {
             assert!(text.contains("Repeat group"));
             assert!(text.contains("End repeat"));
+            assert!(text.lines().any(|line| line.starts_with("  Repeat group")));
+            assert!(text.lines().any(|line| line.starts_with("    VALUE")));
         }
     }
 }

@@ -249,6 +249,8 @@ pub struct ParameterOccurrence {
     pub definition: Definition,
     pub location: Location,
     pub enclosing: Vec<Enclosure>,
+    /// Recorded declarations for the enclosure path, outermost first.
+    pub enclosing_definitions: Vec<Definition>,
 }
 /// Siblings in declared order; duplicate positions survive with source tie-breaks.
 #[derive(Clone, Debug)]

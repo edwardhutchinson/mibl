@@ -432,6 +432,9 @@ impl View {
         self.definition(&o.definition, context);
         let mut ids = self.info(&o.parameter, context);
         ids.extend(self.location(&o.location, context));
+        for definition in &o.enclosing_definitions {
+            self.definition(definition, &format!("{context} enclosure"));
+        }
         for e in &o.enclosing {
             match e {
                 Enclosure::Repetition(r) => self.repetition(r, context),
@@ -796,10 +799,21 @@ pub(super) fn packet(p: &PacketDescription, details: bool, out: &mut dyn Write) 
             &mut view,
             &mut rows,
             &mut BTreeMap::new(),
+            0,
         );
     }
     if rows.len() > 1 {
-        table(&rows, out)?;
+        if p.layout.value.as_ref().is_some_and(|layout| {
+            layout
+                .iter()
+                .any(|node| !matches!(node, Layout::Element(_)))
+        }) {
+            for row in rows.iter().skip(1) {
+                writeln!(out, "{}", row.join("  "))?;
+            }
+        } else {
+            table(&rows, out)?;
+        }
     } else {
         writeln!(
             out,
@@ -837,6 +851,7 @@ fn collect_layout<'a>(
     view: &mut View,
     rows: &mut Vec<Vec<String>>,
     seen: &mut BTreeMap<Source, u64>,
+    depth: usize,
 ) {
     for item in layout {
         match item {
@@ -845,7 +860,7 @@ fn collect_layout<'a>(
                 let context = format!("{} at {}", text(&o.reference.0), location_text(o));
                 let ids = view.occurrence(o, &context);
                 rows.push(vec![
-                    text(&o.reference.0),
+                    format!("{}{}", "  ".repeat(depth), text(&o.reference.0)),
                     location_text(o),
                     width(&o.location.encoded_bits),
                     format!("{}{}", repeat(o, seen), markers(&ids)),
@@ -866,13 +881,13 @@ fn collect_layout<'a>(
                     None => "unavailable".into(),
                 };
                 rows.push(vec![
-                    "Repeat group".into(),
+                    format!("{}Repeat group", "  ".repeat(depth)),
                     source(&definition.source),
                     String::new(),
                     label,
                 ]);
-                collect_layout(children, occurrences, view, rows, seen);
-                rows.push(vec!["End repeat".into()]);
+                collect_layout(children, occurrences, view, rows, seen, depth + 1);
+                rows.push(vec![format!("{}End repeat", "  ".repeat(depth))]);
             }
             Layout::Conditional {
                 definition,
@@ -882,12 +897,12 @@ fn collect_layout<'a>(
                 view.definition(definition, "Layout condition");
                 view.declaration(condition, "Layout condition");
                 rows.push(vec![
-                    "Conditional structure".into(),
+                    format!("{}Conditional structure", "  ".repeat(depth)),
                     source(&definition.source),
                     String::new(),
                     text(&condition.expression),
                 ]);
-                collect_layout(children, occurrences, view, rows, seen);
+                collect_layout(children, occurrences, view, rows, seen, depth + 1);
             }
         }
     }
