@@ -65,6 +65,11 @@ impl Mib {
     pub fn command(&self, name: &CommandName) -> Lookup<CommandDescription> {
         self.catalog.command(name)
     }
+    /// List packet and command definitions by PUS service and optional subtype.
+    /// Order: subtype ascending, missing subtype last, kind, identity, source.
+    pub fn pus(&self, service: u16, subtype: Option<u16>) -> Vec<Candidate> {
+        self.catalog.pus(service, subtype)
+    }
     /// Case-insensitive names/descriptions and SPIDs. No cap. Blank query is empty.
     /// Rank exact identities, prefixes, then fuzzy matches, names before descriptions.
     /// Ties: parameter/packet/command, identity (SPIDs numeric), source.

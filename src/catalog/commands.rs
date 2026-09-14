@@ -67,6 +67,8 @@ impl Catalog {
 }
 pub(super) fn command_candidate(row: &Row<Ccf>) -> Candidate {
     Candidate {
+        service_type: unsigned(&row.cells.r#type, "Service type").value,
+        service_subtype: unsigned(&row.cells.stype, "Service subtype").value,
         identity: Identity::Command(
             row.cells
                 .cname

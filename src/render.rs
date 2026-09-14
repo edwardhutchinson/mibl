@@ -914,6 +914,7 @@ pub(super) fn candidates<'a>(
     let mut rows = vec![vec![
         "Kind".into(),
         "Identity".into(),
+        "PUS".into(),
         "Name".into(),
         "Description".into(),
         "Source".into(),
@@ -927,6 +928,20 @@ pub(super) fn candidates<'a>(
         rows.push(vec![
             kind.into(),
             identity,
+            match (&c.identity, c.service_type) {
+                (Identity::Packet(_) | Identity::Command(_), Some(service)) => {
+                    let prefix = if matches!(c.identity, Identity::Packet(_)) {
+                        "TM"
+                    } else {
+                        "TC"
+                    };
+                    let subtype = c
+                        .service_subtype
+                        .map_or_else(|| "-".into(), |s| s.to_string());
+                    format!("{prefix}({service},{subtype})")
+                }
+                _ => "-".into(),
+            },
             string(&c.name),
             string(&c.description),
             source(&c.source),

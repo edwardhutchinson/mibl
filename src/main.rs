@@ -14,9 +14,11 @@ enum Request {
     Parameter(ParameterName),
     Packet(PacketSpid),
     Command(CommandName),
+    Pus { service: u16, subtype: Option<u16> },
     Search { query: String, scope: SearchScope },
 }
 enum ConfigurationError {
+    InvalidPus,
     MissingMibDir,
     EmptyMibDir,
     Arguments(clap::Error),
@@ -45,6 +47,15 @@ fn cli() -> Command {
                 .global(true)
                 .action(ArgAction::SetTrue)
                 .help("Show recorded fields and problem evidence"),
+        )
+        .subcommand(
+            Command::new("pus")
+                .about("List telemetry packets and telecommands by PUS service")
+                .arg(
+                    Arg::new("SERVICE[,SUBTYPE]")
+                        .required(true)
+                        .allow_hyphen_values(true),
+                ),
         )
         .subcommand(
             Command::new("search")
@@ -101,11 +112,26 @@ fn configure(
     let matches = cli()
         .try_get_matches_from(std::iter::once(OsString::from("mibl")).chain(arguments))
         .map_err(ConfigurationError::Arguments)?;
-    let directory = mib_dir.ok_or(ConfigurationError::MissingMibDir)?;
-    if directory.is_empty() {
-        return Err(ConfigurationError::EmptyMibDir);
-    }
     let request = match matches.subcommand() {
+        Some(("pus", args)) => {
+            let value = args
+                .get_one::<String>("SERVICE[,SUBTYPE]")
+                .expect("required PUS argument");
+            let mut parts = value.split(',');
+            let parse = |part: &str| {
+                if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
+                    return Err(ConfigurationError::InvalidPus);
+                }
+                part.parse::<u16>()
+                    .map_err(|_| ConfigurationError::InvalidPus)
+            };
+            let service = parse(parts.next().unwrap())?;
+            let subtype = parts.next().map(parse).transpose()?;
+            if parts.next().is_some() {
+                return Err(ConfigurationError::InvalidPus);
+            }
+            Request::Pus { service, subtype }
+        }
         Some(("parameter", args)) => Request::Parameter(ParameterName(
             args.get_one::<String>("NAME")
                 .expect("required NAME")
@@ -138,6 +164,10 @@ fn configure(
         },
         _ => unreachable!("clap requires a declared subcommand"),
     };
+    let directory = mib_dir.ok_or(ConfigurationError::MissingMibDir)?;
+    if directory.is_empty() {
+        return Err(ConfigurationError::EmptyMibDir);
+    }
     Ok(Configuration {
         directory: directory.into(),
         debug: matches.get_flag("debug"),
@@ -161,14 +191,15 @@ enum Response {
     Parameter(Lookup<ParameterDescription>),
     Packet(Lookup<PacketDescription>),
     Command(Lookup<CommandDescription>),
-    Search(Vec<Candidate>),
+    Candidates(Vec<Candidate>),
 }
 fn query(mib: &Mib, request: &Request) -> Response {
     match request {
+        Request::Pus { service, subtype } => Response::Candidates(mib.pus(*service, *subtype)),
         Request::Parameter(name) => Response::Parameter(mib.parameter(name)),
         Request::Command(name) => Response::Command(mib.command(name)),
         Request::Packet(spid) => Response::Packet(mib.packet(*spid)),
-        Request::Search { query, scope } => Response::Search(mib.search(query, *scope)),
+        Request::Search { query, scope } => Response::Candidates(mib.search(query, *scope)),
     }
 }
 
@@ -203,13 +234,16 @@ fn render(
             )?;
             return Ok(ExitCode::from(3));
         }
-        Response::Search(candidates) => render::candidates(candidates.iter(), stdout)?,
+        Response::Candidates(candidates) => render::candidates(candidates.iter(), stdout)?,
     }
     Ok(ExitCode::SUCCESS)
 }
 
 fn report_error(error: &CliError, stderr: &mut dyn io::Write) -> ExitCode {
     let message = match error {
+        CliError::Configuration(ConfigurationError::InvalidPus) => {
+            "PUS argument must be <SERVICE> or <SERVICE,SUBTYPE> as unsigned integers".into()
+        }
         CliError::Configuration(ConfigurationError::MissingMibDir) => "MIB_DIR is not set".into(),
         CliError::Configuration(ConfigurationError::EmptyMibDir) => "MIB_DIR is empty".into(),
         CliError::Configuration(ConfigurationError::Arguments(error)) => {

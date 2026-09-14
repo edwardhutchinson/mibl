@@ -6,15 +6,21 @@ use crate::{
 use std::collections::HashMap;
 mod commands;
 mod packets;
+mod pus;
 mod search;
 mod variable;
 /// Stable within this snapshot; points into retained root rows, never a public handle.
 pub(crate) struct RowId(usize);
+enum PusRow {
+    Packet(RowId),
+    Command(RowId),
+}
 pub(crate) struct Catalog {
     records: Records,
     parameters: HashMap<ParameterName, Vec<RowId>>,
     packets: HashMap<PacketSpid, Vec<RowId>>,
     commands: HashMap<CommandName, Vec<RowId>>,
+    pus: std::collections::BTreeMap<(u16, Option<u16>), Vec<PusRow>>,
     supporting: HashMap<(Table, String), Vec<RowId>>,
 }
 impl Catalog {
@@ -34,10 +40,12 @@ impl Catalog {
             parameters,
             packets: HashMap::new(),
             commands: HashMap::new(),
+            pus: Default::default(),
             supporting: HashMap::new(),
         };
         catalog.index_packets();
         catalog.index_commands();
+        catalog.index_pus();
         catalog
     }
     fn related(&self, table: Table, key: String) -> &[RowId] {
@@ -160,6 +168,8 @@ fn describe_parameter(row: &Row<Pcf>) -> ParameterDescription {
 
 fn parameter_candidate(row: &Row<Pcf>) -> Candidate {
     Candidate {
+        service_type: None,
+        service_subtype: None,
         identity: Identity::Parameter(
             row.cells
                 .name

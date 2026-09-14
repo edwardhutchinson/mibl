@@ -95,6 +95,8 @@ impl Catalog {
     pub(super) fn packet_candidate(&self, row: &Row<Pid>) -> Candidate {
         let summary = self.packet_summary(row);
         Candidate {
+            service_type: unsigned(&row.cells.r#type, "Service type").value,
+            service_subtype: unsigned(&row.cells.stype, "Service subtype").value,
             identity: Identity::Packet(summary.spid),
             name: summary.name,
             description: summary.description,

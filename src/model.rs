@@ -47,6 +47,8 @@ pub struct Source {
 #[derive(Clone, Debug)]
 pub struct Candidate {
     pub identity: Identity,
+    pub service_type: Option<u16>,
+    pub service_subtype: Option<u16>,
     pub name: Info<String>,
     pub description: Info<String>,
     pub source: Source,

@@ -8,6 +8,7 @@ MIB_DIR=/path/to/mib cargo run -- packet 89000
 MIB_DIR=/path/to/mib cargo run -- parameter TEMP
 MIB_DIR=/path/to/mib cargo run -- command DEMO_TC
 MIB_DIR=/path/to/mib cargo run -- search mode --scope all
+MIB_DIR=/path/to/mib cargo run -- pus 3,25
 MIB_DIR=/path/to/mib cargo run -- --debug parameter TEMP
 ```
 
@@ -94,3 +95,18 @@ Tests use synthetic temporary directories.
 
 Run `cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings`, and
 `cargo test` to validate the implementation.
+
+### PUS lookup
+
+Use `mibl pus 3` to list telemetry packet definitions and telecommand definitions
+for service 3, or `mibl pus 3,25` to restrict the results to subtype 25.
+Both coordinates accept unsigned 16-bit integers, separated by a comma.
+Results sort by subtype, with missing subtypes last, then packets before
+commands, then numeric packet SPID or command name. Duplicate definitions remain
+separate rows. No matches produces a header-only table and exit status 0.
+
+Candidate tables for PUS lookup, search, and ambiguous exact lookups contain
+`Kind  Identity  PUS  Name  Description  Source`. PUS coordinates appear as
+`TM(3,25)` or `TC(3,25)`. A missing subtype appears as `-` inside the
+coordinates; parameters and definitions without a service show `-`.
+The PUS column does not participate in search matching.
