@@ -2,7 +2,9 @@
 use crate::{LoadError, model::*};
 use std::{io, path::Path};
 mod commands;
+mod variable;
 use commands::{parse_ccf, parse_cdf, parse_cpc};
+use variable::parse_vpd;
 
 /// Every retained row owns recorded fields and independent interpreted cells.
 pub(crate) struct Row<T> {
@@ -328,6 +330,7 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
     let tpcf = read_table(directory, "tpcf.dat", parse_tpcf);
     let pic = read_table(directory, "pic.dat", parse_pic);
     let plf = read_table(directory, "plf.dat", parse_plf);
+    let vpd = read_table(directory, "vpd.dat", parse_vpd);
     let ccf = read_table(directory, "ccf.dat", parse_ccf);
     let cdf = read_table(directory, "cdf.dat", parse_cdf);
     let cpc = read_table(directory, "cpc.dat", parse_cpc);
@@ -340,6 +343,7 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         && tpcf.rows().is_empty()
         && pic.rows().is_empty()
         && plf.rows().is_empty()
+        && vpd.rows().is_empty()
     {
         return Err(LoadError::NoUsableSupportedRows {
             directory: directory.to_owned(),
@@ -351,7 +355,7 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         tpcf,
         pic,
         plf,
-        vpd: TableLoad::Missing,
+        vpd,
         cur: TableLoad::Missing,
         caf,
         cap: TableLoad::Missing,

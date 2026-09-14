@@ -223,9 +223,9 @@ information carries the missing-reference problem.
 
 A PLF occurrence linked to a PID with a variable TPSD remains inspectable in a
 parameter result, with an inconsistent-definition problem containing both rows.
-The packet result continues to mark its variable layout unsupported. Parameter
-occurrence collections also carry an unsupported-interpretation problem when the
-snapshot contains variable PID definitions, because VPD containment is not loaded.
+Issue #11 replaces the variable-layout placeholder with the VPD behavior below.
+Missing VPD data is reported as a missing reference while fixed occurrences remain
+available.
 
 ## Issue #19 CLI presentation amendment
 
@@ -307,3 +307,40 @@ Cross-check: existing reader rows produce every field in the existing command
 model; public Mib results and CLI checks exercise lookup, ordering, partial links,
 width conflicts, defaults and schema ambiguity using synthetic data. No public
 interface amendment is needed for this slice.
+
+
+## Issue #11 variable packet resolution
+
+The existing public types carry VPD results without an interface extension.
+Reader `Row<Vpd>` feeds ordered `Layout<ParameterOccurrence>` trees in packet
+lookup. Parameter lookup flattens only their declared elements, retaining each
+occurrence's enclosing groups. Neither traversal expands repetition counts or
+follows runtime-selected TPSD structures. Missing packet roots leave orphan VPD
+occurrences available with a missing PID/TPSD reference.
+
+The catalog interprets GRPSIZE as a count of following records, including nested
+markers. A positive FIXREP defines a fixed group whose marker has a PCF definition
+but no transmitted occurrence. Zero FIXREP uses the marker's runtime value.
+The negative FIXREP extension is unsupported and its children remain inspectable.
+CHOICE produces a conditional node with a selector dependency and no statically
+selected children. PIDREF and deduced PCF_RELATED retain parameter-ID dependencies.
+
+Extraction begins at PID_DFHSIZE bytes. VPD_OFFSET adds a signed bit displacement
+from the preceding slot end. PTC/PFC supplies encoded width; PCF_WIDTH supplies the
+padded slot when declared, with padding preceding the value. A contradictory slot
+width preserves the declared slot end and encoded width, but cannot establish the
+value's extraction position. VPD_WIDTH remains display metadata. Repeated children
+use positions relative to each repetition, with group-start constraints; following
+locations use fixed counts and known strides, or retain runtime dependencies.
+
+Duplicate positions keep source ordering and attach all competing definitions.
+Shared widths survive ambiguous PCF references when all candidates agree. Packet
+and parameter rendering consume the same occurrence information, with explicit
+group boundaries in packet output. Recorded fields, defaults and source locations
+continue through the existing definition and problem-evidence renderers.
+
+Cross-check: the reader supplies all fourteen schema fields; catalog consumers
+use TPSD/POS/NAME, repetition, selection and offset cells and preserve display
+fields in definitions. Public packet and parameter results terminate at parameter
+summaries and packet summaries respectively. The CLI accesses only those public
+results. Synthetic public-library and CLI tests cover these exchanges.

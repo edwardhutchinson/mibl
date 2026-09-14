@@ -62,7 +62,7 @@ let result = mib.parameter(&ParameterName("TEMP".into()));
 A snapshot reads its files once. Queries use retained records and indexes, even
 if the source files change or disappear. Results can outlive the snapshot.
 
-The loader reads `pcf.dat`, `pid.dat`, `tpcf.dat`, `pic.dat`, `plf.dat`, and CAF
+The loader reads `pcf.dat`, `pid.dat`, `tpcf.dat`, `pic.dat`, `plf.dat`, `vpd.dat`, and CAF
 headers in `caf.dat`, plus `ccf.dat`, `cdf.dat` and `cpc.dat`. Supporting tables can form a usable snapshot even without
 root definitions. The loader accepts omitted optional fields and extra trailing
 columns, and keeps usable rows when neighboring rows or other supported files fail.
@@ -78,7 +78,12 @@ from CPC PTC/PFC; disagreements with CDF_ELLEN remain visible. CPC suffix fields
 retain their raw text and candidate meanings without guessing description or
 endian interpretation.
 
-Variable packet layouts, calibration expansion, command headers, nested command
+Variable packet layouts retain nested groups without expanding repetitions.
+Counts, runtime selectors, parameter-ID dependencies and relative locations remain
+visible. VPD display width does not determine encoded width. PCF padding and
+signed VPD offsets determine subsequent locations where possible.
+
+Calibration expansion, command headers, nested command
 repetitions and supporting argument rules belong to later slices.
 Unimplemented relationships
 carry unsupported-interpretation problems.

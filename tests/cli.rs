@@ -845,3 +845,41 @@ fn search_mode_walkthrough_always_uses_candidate_table_and_reuses_identities() {
         assert_eq!(run(&dir, &args).status.code(), Some(2));
     }
 }
+
+#[test]
+fn variable_packet_cli_shows_group_boundaries_and_runtime_dependencies() {
+    let dir = Fixture::new();
+    dir.write(
+        "pcf.dat",
+        "COUNT\tCounter\t\t\t3\t4\t8\t\t\tN\tR\nVALUE\tValue\t\t\t3\t4\t8\t\t\tN\tR",
+    );
+    dir.write("pid.dat", "3\t25\t42\t0\t0\t100\tVariable\t\t7\t10");
+    dir.write(
+        "vpd.dat",
+        "7\t1\tCOUNT\t2\t0\tN\tN\t\t0\n7\t2\tCOUNT\t1\t2\tN\tN\t\t0\n7\t3\tVALUE\t0\t0\tN\tN\t\t1",
+    );
+    for args in [
+        vec!["--details", "packet", "100"],
+        vec!["--details", "parameter", "VALUE"],
+    ] {
+        let output = run(&dir, &args);
+        assert!(output.status.success());
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        for expected in [
+            "VALUE",
+            "8 bits",
+            "runtime",
+            "fixed count 2",
+            "VPD_GRPSIZE",
+            "vpd.dat:3",
+            "COUNT",
+        ] {
+            assert!(text.contains(expected), "missing {expected}: {text}");
+        }
+        if args[1] == "packet" {
+            assert!(text.contains("Repeat group"));
+            assert!(text.contains("End repeat"));
+        }
+    }
+}

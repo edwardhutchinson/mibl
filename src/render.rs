@@ -623,6 +623,11 @@ fn repeat(o: &ParameterOccurrence, seen: &mut BTreeMap<Source, u64>) -> String {
     for e in &o.enclosing {
         parts.push(match e {
             Enclosure::Repetition(r) => match &r.value {
+                Some(Repetition::Fixed { count, stride_bits })
+                    if field_value(&o.definition, "VPD_TPSD").is_some() =>
+                {
+                    format!("fixed count {count}, stride {}", width(stride_bits))
+                }
                 Some(Repetition::Fixed { count, stride_bits }) => format!(
                     "{instance}/{count}, stride {}{}",
                     width(stride_bits),
@@ -778,25 +783,20 @@ pub(super) fn packet(p: &PacketDescription, details: bool, out: &mut dyn Write) 
     writeln!(out, "\nLayout")?;
     view.info(&p.layout, "Layout");
     let mut occurrences = Vec::new();
-    if let Some(layout) = &p.layout.value {
-        collect_layout(layout, &mut occurrences, &mut view);
-    }
     let mut rows = vec![vec![
         "Parameter".into(),
         "Location".into(),
         "Width".into(),
         "Repeat".into(),
     ]];
-    let mut seen = BTreeMap::new();
-    for o in &occurrences {
-        let context = format!("{} at {}", text(&o.reference.0), location_text(o));
-        let ids = view.occurrence(o, &context);
-        rows.push(vec![
-            text(&o.reference.0),
-            location_text(o),
-            width(&o.location.encoded_bits),
-            format!("{}{}", repeat(o, &mut seen), markers(&ids)),
-        ]);
+    if let Some(layout) = &p.layout.value {
+        collect_layout(
+            layout,
+            &mut occurrences,
+            &mut view,
+            &mut rows,
+            &mut BTreeMap::new(),
+        );
     }
     if rows.len() > 1 {
         table(&rows, out)?;
@@ -835,10 +835,22 @@ fn collect_layout<'a>(
     layout: &'a [Layout<ParameterOccurrence>],
     occurrences: &mut Vec<&'a ParameterOccurrence>,
     view: &mut View,
+    rows: &mut Vec<Vec<String>>,
+    seen: &mut BTreeMap<Source, u64>,
 ) {
     for item in layout {
         match item {
-            Layout::Element(o) => occurrences.push(o),
+            Layout::Element(o) => {
+                occurrences.push(o);
+                let context = format!("{} at {}", text(&o.reference.0), location_text(o));
+                let ids = view.occurrence(o, &context);
+                rows.push(vec![
+                    text(&o.reference.0),
+                    location_text(o),
+                    width(&o.location.encoded_bits),
+                    format!("{}{}", repeat(o, seen), markers(&ids)),
+                ]);
+            }
             Layout::Repeat {
                 definition,
                 repetition,
@@ -846,7 +858,21 @@ fn collect_layout<'a>(
             } => {
                 view.definition(definition, "Layout repeat");
                 view.repetition(repetition, "Layout repeat");
-                collect_layout(children, occurrences, view);
+                let label = match &repetition.value {
+                    Some(Repetition::Fixed { count, stride_bits }) => {
+                        format!("fixed count {count}, stride {}", width(stride_bits))
+                    }
+                    Some(Repetition::Runtime(r)) => format!("runtime {}", text(&r.expression)),
+                    None => "unavailable".into(),
+                };
+                rows.push(vec![
+                    "Repeat group".into(),
+                    source(&definition.source),
+                    String::new(),
+                    label,
+                ]);
+                collect_layout(children, occurrences, view, rows, seen);
+                rows.push(vec!["End repeat".into()]);
             }
             Layout::Conditional {
                 definition,
@@ -855,7 +881,13 @@ fn collect_layout<'a>(
             } => {
                 view.definition(definition, "Layout condition");
                 view.declaration(condition, "Layout condition");
-                collect_layout(children, occurrences, view);
+                rows.push(vec![
+                    "Conditional structure".into(),
+                    source(&definition.source),
+                    String::new(),
+                    text(&condition.expression),
+                ]);
+                collect_layout(children, occurrences, view, rows, seen);
             }
         }
     }

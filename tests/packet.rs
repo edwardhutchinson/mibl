@@ -386,13 +386,15 @@ fn reverse_occurrences_flag_plf_linked_to_a_variable_packet() {
     let Lookup::Found(parameter) = mib.parameter(&ParameterName("ZUT00002".into())) else {
         panic!()
     };
-    assert!(
-        parameter
-            .occurrences
-            .problems
-            .iter()
-            .any(|p| matches!(p.kind, ProblemKind::UnsupportedInterpretation { .. }))
-    );
+    assert!(parameter.occurrences.problems.iter().any(|p| matches!(
+        p.kind,
+        ProblemKind::MissingReference {
+            reference: Reference::Supporting {
+                table: Table::Vpd,
+                ..
+            }
+        }
+    )));
     let occurrences = parameter.occurrences.value.unwrap();
     assert!(
         occurrences[0]

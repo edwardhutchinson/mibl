@@ -4,8 +4,11 @@ use crate::reader::{Pid, Plf};
 impl Catalog {
     pub(super) fn index_packets(&mut self) {
         for (i, row) in self.records.pid.rows().iter().enumerate() {
-            if row.cells.tpsd.value != Some(-1) && self.variable_packet_source.is_none() {
-                self.variable_packet_source = Some(row.definition.source.clone());
+            if row.cells.tpsd.value != Some(-1) {
+                self.supporting
+                    .entry((Table::Pid, row.cells.tpsd.value.unwrap().to_string()))
+                    .or_default()
+                    .push(RowId(i));
             }
             self.packets
                 .entry(row.cells.spid.value.unwrap())
@@ -23,6 +26,19 @@ impl Catalog {
                 .entry((
                     Table::Pic,
                     pic_key(row.cells.r#type.value, row.cells.stype.value),
+                ))
+                .or_default()
+                .push(RowId(i));
+        }
+        for (i, row) in self.records.vpd.rows().iter().enumerate() {
+            self.supporting
+                .entry((Table::Vpd, row.cells.tpsd.value.unwrap().to_string()))
+                .or_default()
+                .push(RowId(i));
+            self.supporting
+                .entry((
+                    Table::Vpd,
+                    format!("name:{}", row.cells.name.value.as_ref().unwrap().0),
                 ))
                 .or_default()
                 .push(RowId(i));
@@ -45,7 +61,7 @@ impl Catalog {
         }
     }
 
-    fn packet_summary(&self, row: &Row<Pid>) -> PacketSummary {
+    pub(super) fn packet_summary(&self, row: &Row<Pid>) -> PacketSummary {
         let spid = row.cells.spid.value.unwrap();
         let reference = Reference::Supporting {
             table: Table::Tpcf,
@@ -181,7 +197,7 @@ impl Catalog {
     fn fixed_layout(&self, row: &Row<Pid>) -> Info<Vec<Layout<ParameterOccurrence>>> {
         let source = &row.definition.source;
         if row.cells.tpsd.value != Some(-1) {
-            return unavailable(source, "Variable packet layouts are not implemented yet");
+            return self.variable_layout(row);
         }
         let rows: Vec<_> = self
             .related(
@@ -361,15 +377,6 @@ impl Catalog {
             .definition
             .source
             .clone();
-        if !matches!(self.records.plf, crate::reader::TableLoad::Read { .. }) {
-            return missing(
-                Reference::Supporting {
-                    table: Table::Plf,
-                    key: name.0.clone(),
-                },
-                &source,
-            );
-        }
         let mut grouped = std::collections::BTreeMap::<PacketSpid, Vec<&Row<Plf>>>::new();
         for id in rows {
             let row = &self.records.plf.rows()[id.0];
@@ -425,9 +432,19 @@ impl Catalog {
             ),
             &source,
         );
-        if let Some(source) = &self.variable_packet_source {
-            result.problems.extend(unavailable::<()>(source, "Variable packet containment is not implemented yet; fixed occurrences are shown").problems);
+        if !matches!(self.records.plf, crate::reader::TableLoad::Read { .. }) {
+            result.problems.extend(
+                missing::<()>(
+                    Reference::Supporting {
+                        table: Table::Plf,
+                        key: name.0.clone(),
+                    },
+                    &source,
+                )
+                .problems,
+            );
         }
+        self.add_variable_occurrences(name, &mut result);
         result
     }
 }

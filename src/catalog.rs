@@ -7,13 +7,13 @@ use std::collections::HashMap;
 mod commands;
 mod packets;
 mod search;
+mod variable;
 /// Stable within this snapshot; points into retained root rows, never a public handle.
 pub(crate) struct RowId(usize);
 pub(crate) struct Catalog {
     records: Records,
     parameters: HashMap<ParameterName, Vec<RowId>>,
     packets: HashMap<PacketSpid, Vec<RowId>>,
-    variable_packet_source: Option<Source>,
     commands: HashMap<CommandName, Vec<RowId>>,
     supporting: HashMap<(Table, String), Vec<RowId>>,
 }
@@ -33,7 +33,6 @@ impl Catalog {
             records,
             parameters,
             packets: HashMap::new(),
-            variable_packet_source: None,
             commands: HashMap::new(),
             supporting: HashMap::new(),
         };
