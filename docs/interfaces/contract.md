@@ -7,8 +7,9 @@ Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
 Issue #10 implements fixed packet lookup and containing occurrences.
 Issue #13 implements basic command lookup. Issue #12 implements monitoring
 calibration resolution. Issue #14 implements command argument ranges, aliases
-and conversions. Issue #15 implements nested command argument groups. Search,
-variable packet layouts and PUS lookup follow in #17, #11 and #22.
+and conversions. Issue #15 implements nested command argument groups. Issue #16
+implements expanded command headers. Search, variable packet layouts and PUS
+lookup follow in #17, #11 and #22.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -562,3 +563,80 @@ flat table for a command without declared groups, and fixed-area and incomplete
 declarations whose problems and usable elements render beside each other. The unpublished sample MIB resolves every command
 without a panic and renders S2KTC074's nested repetitions with their recorded
 counter values.
+
+## Issue #16 command header expansion
+
+The public `CommandHeader` and `HeaderField` types already carry the expansion, so
+neither a type, field nor operation is added. The reader adds the TCP, PCDF and
+PCPC tables under the shared partial-loading and recorded-field rules; a directory
+holding only these supporting rows still loads.
+
+`CCF_PKTID` names the TCP row whose PCDF records describe the packet header the
+command is encoded into. TCP resolves by TCP_ID, PCDF rows by PCDF_TCNAME and PCPC
+rows by PCPC_PNAME, each keeping duplicates in source order. A resolving reference
+that has no retained row is a missing reference, and several rows under one key
+keep every definition with the ambiguity attached. The header's own `definition`
+is the first retained TCP row in source order, so an ambiguous declaration still
+describes the header.
+
+`CommandHeader.fields` holds every PCDF row in declared order: PCDF_BIT, then
+source line, which keeps duplicate offsets in source order. Each `HeaderField`
+carries its PCDF row as `definition`, PCDF_TYPE as `field_kind`, PCDF_BIT as
+`Position::HeaderBit` with PCDF_LEN as the encoded width, the PCPC row named by
+PCDF_PNAME as a typed `parameter` target, and PCDF_VALUE as its value.
+
+ICD 7.0 defines the recorded value: a fixed area (`F`) states its content in hex,
+an unsigned integer parameter (`PCPC_CODE` absent or `U`) states its default in
+PCDF_RADIX, and a signed integer parameter (`I`) states it in decimal, where
+PCDF_RADIX is irrelevant. The declared representation therefore reports the radix
+that governs the interpretation, while every recorded cell, including PCDF_RADIX,
+stays in the definition. Without a linked parameter the declared format is
+unknown, so the value stays unavailable and the link carries the reference problem.
+A value the declared radix cannot interpret keeps its recorded text and an
+UnsupportedInterpretation problem.
+
+Header element types are `F` fixed area, `A` APID, `T` service type, `S` service
+sub type, `K` acknowledgement flags and `P` an automatically set packet parameter.
+PCDF_TYPE is validated against those codes, so an undeclared type drops its own row
+and leaves every other element usable. The renderer names each type and the source
+a command load takes its value from, which keeps the invocation-time source visible
+beside the recorded default. No telemetry or command invocation is evaluated.
+
+Contradictory and incomplete declarations stay beside the usable elements. ICD 7.0
+requires PCDF_PNAME to be absent for a fixed area, so a fixed area declaring one
+keeps both declarations with InconsistentDefinition, and a parameter element
+declaring none reports the same way. Duplicate PCDF_BIT declarations keep every
+element in source order with InconsistentDefinition naming every declaration. Every
+PCDF record declaring one PCDF_PNAME must declare the same PCDF_LEN, within one
+packet header or across several, so a disagreement attaches
+InconsistentDefinition naming PCDF_PNAME, PCDF_LEN and every available definition
+to the affected element widths. Missing, ambiguous, contradictory or unsupported
+header information never removes the command or changes a unique match into
+NotFound.
+
+The CLI prints a `Header` section after the `Argument rules` section, separate from
+the application data: the expanded TCP identity with its description and source,
+then an aligned table of `Field  Parameter  Location  Width  Kind  Value`. A field
+shows its recorded PCDF_DESC, its declared PCDF_PNAME, its header bit, its declared
+length in bits, its declared type with the source that supplies its value, and its
+interpreted value with the governing radix, marked as the declared default for
+every parameter element. A resolved header with no retained PCDF row prints
+`No header elements declared`; an unavailable header or field table prints
+`unavailable` with its problem markers. `--details` adds every reachable TCP, PCDF
+and PCPC definition with its recorded fields, presence, defaults and reference
+evidence.
+
+Cross-check: the reader supplies all eight PCDF cells, three PCPC cells and two TCP
+cells; the catalog consumes CCF_PKTID, PCDF_TCNAME, PCDF_TYPE, PCDF_LEN, PCDF_BIT,
+PCDF_PNAME, PCDF_VALUE and PCDF_RADIX and joins PCDF_PNAME with PCPC. Public
+library tests cover declared ordering, fixed content, signed and unsigned
+interpretation, documented radix defaults, absent supporting files, missing and
+duplicate linked definitions, duplicate offsets, disagreeing declared lengths,
+contradictory and malformed declarations, ambiguous packet headers and a
+supporting-only snapshot. Focused CLI checks cover the section's placement, its
+table in both output modes, and problems rendering beside usable arguments. The
+unpublished sample MIB expands every command header without a panic and renders
+the nominal, test and no-header declarations with their recorded content.
+
+This supersedes the #13 note that header expansion remains outside that slice, and
+the #19 placeholder header problem, which no longer appears in command views.

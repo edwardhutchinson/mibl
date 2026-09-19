@@ -6,6 +6,7 @@ use crate::{
 use std::collections::HashMap;
 mod calibrations;
 mod commands;
+mod header;
 mod packets;
 mod pus;
 mod search;

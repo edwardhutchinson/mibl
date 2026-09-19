@@ -54,9 +54,114 @@ pub(crate) fn command(
             writeln!(out, "{line}")?;
         }
     }
-    let ids = view.info(&c.header, "Header");
-    writeln!(out, "\nHeader: unavailable{}", markers(&ids))?;
+    command_header(&c.header, &mut view, out)?;
     view.finish(details, out)
+}
+
+/// The expanded packet header, separate from the application-data arguments: the TCP
+/// declaration and its PCDF elements in declared offset order. A command whose header cannot
+/// be resolved keeps its other information and reports the problem here.
+fn command_header(
+    header: &Info<CommandHeader>,
+    view: &mut View,
+    out: &mut dyn Write,
+) -> io::Result<()> {
+    writeln!(out, "\nHeader")?;
+    let ids = view.info(header, "Header");
+    let Some(header) = &header.value else {
+        return writeln!(out, "unavailable{}", markers(&ids));
+    };
+    view.definition(&header.definition, "Command header");
+    writeln!(
+        out,
+        "TCP {}  {}\nSource: {}{}",
+        text(recorded_text(&header.definition, "TCP_ID").unwrap_or("unavailable")),
+        text(recorded_text(&header.definition, "TCP_DESC").unwrap_or("unavailable")),
+        source(&header.definition.source),
+        markers(&ids)
+    )?;
+    let field_ids = view.info(&header.fields, "Header elements");
+    let mut rows = vec![vec![
+        "Field".into(),
+        "Parameter".into(),
+        "Location".into(),
+        "Width".into(),
+        "Kind".into(),
+        "Value".into(),
+    ]];
+    if let Some(fields) = &header.fields.value {
+        if fields.is_empty() {
+            writeln!(out, "No header elements declared")?;
+        } else {
+            for field in fields {
+                header_field(field, view, &mut rows);
+            }
+            table(&rows, out)?;
+        }
+    } else {
+        writeln!(out, "unavailable{}", markers(&field_ids))?;
+    }
+    Ok(())
+}
+
+fn header_field(field: &HeaderField, view: &mut View, rows: &mut Vec<Vec<String>>) {
+    let description = text(recorded_text(&field.definition, "PCDF_DESC").unwrap_or("unavailable"));
+    let context = format!(
+        "Header element {description} at {}",
+        position(&field.location.position)
+    );
+    view.definition(&field.definition, &context);
+    let kind_ids = view.info(&field.field_kind, &format!("{context} kind"));
+    let parameter_ids = view.info(&field.parameter, &format!("{context} parameter"));
+    if let Some(target) = &field.parameter.value {
+        view.target(target, &format!("{context} parameter"));
+    }
+    let ids = view.location(&field.location, &context);
+    let value = header_value(field, view, &format!("{context} value"));
+    rows.push(vec![
+        description,
+        match recorded_text(&field.definition, "PCDF_PNAME") {
+            Some(name) => format!("{}{}", text(name), markers(&parameter_ids)),
+            None => markers(&parameter_ids).trim_start().to_owned(),
+        },
+        format!("{}{}", position(&field.location.position), markers(&ids)),
+        width(&field.location.encoded_bits),
+        format!("{}{}", kind_label(&field.field_kind), markers(&kind_ids)),
+        value,
+    ]);
+}
+
+/// The header element types ICD 7.0 declares, with the source each value is taken from when
+/// a command is loaded.
+fn kind_label(kind: &Info<String>) -> String {
+    match kind.value.as_deref() {
+        Some("F") => "F fixed".into(),
+        Some("A") => "A APID from CCF_APID".into(),
+        Some("T") => "T service type from CCF_TYPE".into(),
+        Some("S") => "S service subtype from CCF_STYPE".into(),
+        Some("K") => "K acknowledgement flags from CCF_ACK".into(),
+        Some("P") => "P set automatically at invocation".into(),
+        Some(other) => text(other),
+        None => "unavailable".into(),
+    }
+}
+
+/// The recorded value of one header element, which the shared argument-value renderer already
+/// prints with its representation and declaration evidence. A fixed area's value is the fixed
+/// content of the header, while a parameter element's recorded value is the default its command
+/// definition or the command subsystem may replace at invocation.
+fn header_value(field: &HeaderField, view: &mut View, context: &str) -> String {
+    let value = argument_value(&field.value, view, context);
+    let declared_default = field.field_kind.value.as_deref() != Some("F")
+        && matches!(
+            field.value.value.as_ref().map(|value| &value.source),
+            Some(ValueSource::Literal(_))
+        );
+    if declared_default {
+        format!("{value} (declared default)")
+    } else {
+        value
+    }
 }
 
 /// Declared repetition and condition structures print as nested blocks, not as one flat table.

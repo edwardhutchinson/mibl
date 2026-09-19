@@ -4,11 +4,13 @@ use std::{io, path::Path};
 mod calibrations;
 mod commands;
 use calibrations::*;
+mod header;
 mod variable;
 use commands::{
     parse_cca, parse_ccf, parse_ccs, parse_cdf, parse_cpc, parse_paf, parse_pas, parse_prf,
     parse_prv,
 };
+use header::{parse_pcdf, parse_pcpc, parse_tcp};
 use variable::parse_vpd;
 
 /// Every retained row owns recorded fields and independent interpreted cells.
@@ -351,6 +353,9 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
     let pas = read_table(directory, "pas.dat", parse_pas);
     let prf = read_table(directory, "prf.dat", parse_prf);
     let prv = read_table(directory, "prv.dat", parse_prv);
+    let tcp = read_table(directory, "tcp.dat", parse_tcp);
+    let pcdf = read_table(directory, "pcdf.dat", parse_pcdf);
+    let pcpc = read_table(directory, "pcpc.dat", parse_pcpc);
     if cur.rows().is_empty()
         && mcf.rows().is_empty()
         && txp.rows().is_empty()
@@ -373,6 +378,9 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         && pas.rows().is_empty()
         && prf.rows().is_empty()
         && prv.rows().is_empty()
+        && tcp.rows().is_empty()
+        && pcdf.rows().is_empty()
+        && pcpc.rows().is_empty()
     {
         return Err(LoadError::NoUsableSupportedRows {
             directory: directory.to_owned(),
@@ -401,9 +409,9 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         pas,
         prf,
         prv,
-        tcp: TableLoad::Missing,
-        pcdf: TableLoad::Missing,
-        pcpc: TableLoad::Missing,
+        tcp,
+        pcdf,
+        pcpc,
     })
 }
 
