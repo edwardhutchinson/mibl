@@ -63,8 +63,9 @@ let result = mib.parameter(&ParameterName("TEMP".into()));
 A snapshot reads its files once. Queries use retained records and indexes, even
 if the source files change or disappear. Results can outlive the snapshot.
 
-The loader reads `pcf.dat`, `pid.dat`, `tpcf.dat`, `pic.dat`, `plf.dat`, `vpd.dat`, and CAF
-headers in `caf.dat`, plus `ccf.dat`, `cdf.dat` and `cpc.dat`. Supporting tables can form a usable snapshot even without
+The loader reads `pcf.dat`, `pid.dat`, `tpcf.dat`, `pic.dat`, `plf.dat`, `vpd.dat`,
+`cur.dat`, `caf.dat`, `cap.dat`, `mcf.dat`, `lgf.dat`, `txf.dat`, `txp.dat`,
+`ccf.dat`, `cdf.dat` and `cpc.dat`. Supporting tables can form a usable snapshot even without
 root definitions. The loader accepts omitted optional fields and extra trailing
 columns, and keeps usable rows when neighboring rows or other supported files fail.
 
@@ -84,9 +85,19 @@ Counts, runtime selectors, parameter-ID dependencies and relative locations rema
 visible. VPD display width does not determine encoded width. PCF padding and
 signed VPD offsets determine subsequent locations where possible.
 
-Calibration expansion, command headers, nested command
-repetitions and supporting argument rules belong to later slices.
-Unimplemented relationships
+Monitoring calibrations show numerical curve points, polynomial and logarithmic
+coefficients, and textual intervals. Conditional alternatives follow CUR_POS order
+and retain selectors, raw-value conditions and monitoring-parameter dependencies.
+The viewer does not evaluate live telemetry. PCF_CATEG names the calibration
+family its reference means, so a reference resolves within its declared numerical
+or textual family first; a definition available only in the other family stays
+available with a structured problem. Declaring both a PCF_CURTX reference and CUR
+calibrations keeps both sets with the disagreement visible. Parameter overviews
+show interpreted calibration values; `--details` adds original fields, defaults,
+sources and reference evidence.
+
+Command calibration expansion, command headers, nested command repetitions and
+supporting argument rules belong to later slices. Unimplemented relationships
 carry unsupported-interpretation problems.
 
 The [interface contract](docs/interfaces/contract.md) describes the complete

@@ -4,8 +4,14 @@ Status: option A accepted by the maintainer on 2026-09-13 for
 [#19](https://github.com/edwardhutchinson/mibl/issues/19).
 Option A and the shared rules below are the accepted presentation contract.
 Option B is retained only as a rejected alternative. Renderer changes belong to
-[#20](https://github.com/edwardhutchinson/mibl/issues/20); the current CLI does not
-yet accept `--details`. All example data is invented and publishable.
+[#20](https://github.com/edwardhutchinson/mibl/issues/20), which shipped
+`--details`. Monitoring calibration views shipped in
+[#12](https://github.com/edwardhutchinson/mibl/issues/12), so the
+`unsupported interpretation; expansion is not implemented` calibration problems in
+the cases below are superseded by the resolved numerical and textual calibrations
+recorded in the [interface contract](../interfaces/contract.md); the rules, labels,
+tables and problem-evidence conventions remain the accepted presentation contract.
+All example data is invented and publishable.
 
 ## Cases to compare
 

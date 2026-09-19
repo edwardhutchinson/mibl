@@ -389,11 +389,11 @@ impl Catalog {
             &rows,
             Reference::Root(Identity::Parameter(name.clone())),
             source,
-            |r| Some(describe_parameter(r).parameter),
+            |r| Some(self.describe_parameter(r).parameter),
         );
         let widths: Vec<_> = rows
             .iter()
-            .map(|p| describe_parameter(p).parameter.encoding.encoded_bits)
+            .map(|p| base_parameter(p).parameter.encoding.encoded_bits)
             .collect();
         let mut encoded_bits = consensus_width(&widths, &parameter);
         if let [p] = rows.as_slice()

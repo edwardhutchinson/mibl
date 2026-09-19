@@ -350,7 +350,7 @@ impl Catalog {
             &rows,
             Reference::Root(Identity::Parameter(name.clone())),
             source,
-            |r| Some(describe_parameter(r).parameter),
+            |r| Some(self.describe_parameter(r).parameter),
         );
         let encoded_bits = parameter.value.as_ref().map_or_else(
             || Info {

@@ -5,8 +5,9 @@ Status: accepted by the maintainer at commit `ef6ea86`; issue #8 is closed.
 The complete interface set remains the contract for the implementation slices.
 Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
 Issue #10 implements fixed packet lookup and containing occurrences.
-Issue #13 implements basic command lookup. Search and variable packet operations
-remain explicit placeholders.
+Issue #13 implements basic command lookup. Issue #12 implements monitoring
+calibration resolution. Search, variable packet layouts and PUS lookup follow
+in #17, #11 and #22.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -364,3 +365,53 @@ from the renderer.
 Duplicate variable PID definitions produce separate containing-packet entries.
 Each entry retains its own root summary and locations, plus an ambiguous-identity
 problem listing the other candidates. Entries sort by SPID and root source.
+
+## Issue #12 monitoring calibration resolution
+
+`ParameterSummary.calibrations: Info<Vec<CalibrationAlternative>>` carries every
+retained definition with no public interface amendment. The reader adds the CUR,
+CAF, CAP, MCF, LGF, TXF and TXP tables under the shared partial-loading and
+recorded-field rules; a directory holding only these supporting rows still loads.
+
+Each alternative holds an optional `selection` (the CUR row), an optional
+`condition` and the calibration `Info`. CUR rows sort by CUR_POS and then source
+line, so the declared evaluation order survives, and duplicate positions attach
+InconsistentDefinition with every competing row. A condition records the declared
+expression `raw(CUR_RLCHK) = CUR_VALPAR` plus a typed dependency on the referenced
+monitoring parameter, whose targets are recorded PCF definitions. CUR_SELECT
+remains the calibration reference. No telemetry is evaluated.
+
+PCF_CATEG names the calibration family a reference means, because the numerical
+and textual keys share one key space. ICD 7.0 declares that PCF_CURTX and
+CUR_SELECT match TXF_NUMBR for status parameters and CAF_NUMBR, MCF_IDENT or
+LGF_IDENT otherwise, and that neither field applies to text parameters or to
+string and time encodings. A reference therefore resolves within its declared
+family first: CAF/CAP curve points, MCF polynomial and LGF logarithmic
+coefficients for every non-status category, TXF/TXP intervals for `S`.
+Definitions that the declared family cannot supply stay available with
+InconsistentDefinition attached, so the surveyed category/reference disagreement
+loses no usable evidence. A simultaneous PCF_CURTX reference and CUR rows keep
+both declaration sets in the declared family with the same problem, because the
+family stays PCF_CATEG's either way; a prohibited encoding or category keeps its
+calibration with the disagreement recorded. A key that resolves nowhere attaches
+MissingReference for the declared family's table, and a key with several targets
+retains all of them with AmbiguousReference. No missing or ambiguous target
+removes the matching parameter. Because that ambiguity spans supporting tables,
+the renderer names every table holding a candidate.
+
+The parameter overview lists alternatives in order with their interpreted values,
+marking the ones derived from documented defaults, and `--details` adds the
+recorded fields, defaults, sources and reference evidence of each CUR, CAF, CAP,
+MCF, LGF, TXF and TXP row. This supersedes the #19
+calibration placeholder problem, which no longer appears in parameter views;
+packet views embed the same resolved summaries.
+
+Cross-check: the reader supplies all five CUR cells, seven CAF/CAP cells, seven
+MCF/LGF cells and four TXF/TXP cells; catalog consumers join PNAME, POS, RLCHK,
+VALPAR and SELECT with NUMBR and IDENT and keep display fields in definitions.
+Public library and parameter CLI tests cover each family, conditional ordering,
+shared and three-way duplicate positions, missing and ambiguous references, the
+synthetic equivalent of the surveyed status-reference disagreement and the
+simultaneous-declaration case.
+The unpublished sample MIB resolves every parameter without a panic and shows the
+surveyed category/reference disagreement as an InconsistentDefinition.
