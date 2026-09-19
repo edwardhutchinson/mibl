@@ -1,11 +1,5 @@
 use super::*;
 
-fn reference(table: Table, key: &str) -> Reference {
-    Reference::Supporting {
-        table,
-        key: key.into(),
-    }
-}
 /// The calibration namespace PCF_CATEG declares for its PCF_CURTX or CUR_SELECT reference.
 /// Status parameters name textual TXF definitions; every other category names the numerical
 /// CAF, MCF or LGF families. The namespaces share one key space, so the category decides
@@ -49,22 +43,6 @@ impl Family {
         match self {
             Self::Numerical => &[Table::Caf, Table::Mcf, Table::Lgf],
             Self::Textual => &[Table::Txf],
-        }
-    }
-}
-/// Records every row's declared key under its table, keeping duplicates in source order.
-fn index_rows<T>(
-    index: &mut HashMap<(Table, String), Vec<RowId>>,
-    table: Table,
-    rows: &[Row<T>],
-    key: impl Fn(&T) -> Option<&str>,
-) {
-    for (i, r) in rows.iter().enumerate() {
-        if let Some(key) = key(&r.cells) {
-            index
-                .entry((table, key.to_owned()))
-                .or_default()
-                .push(RowId(i));
         }
     }
 }
@@ -374,18 +352,14 @@ impl Catalog {
                 definition: c.definition.clone(),
             })
             .collect();
-        let ambiguity = if targets.len() > 1 {
-            Some(Problem {
-                kind: ProblemKind::AmbiguousReference {
-                    reference: targets[0].reference.clone(),
-                    alternatives: AtLeastTwo { first: Box::new(targets[0].clone()), second: Box::new(targets[1].clone()), rest: targets[2..].to_vec() },
-                },
-                sources: std::iter::once(source.clone()).chain(targets.iter().map(|t| t.definition.source.clone())).collect(),
-                explanation: "Calibration reference has multiple targets; every available definition is retained".into(),
-            })
-        } else {
-            None
-        };
+        let ambiguity = targets.first().and_then(|first| {
+            ambiguity(
+                first.reference.clone(),
+                source,
+                targets.clone(),
+                "Calibration reference has multiple targets; every available definition is retained",
+            )
+        });
         values
             .into_iter()
             .map(|c| CalibrationAlternative {
@@ -444,35 +418,6 @@ impl Catalog {
         }
     }
 }
-fn number(cell: &Info<String>, format: Option<&str>, radix: Option<&str>) -> Info<Scalar> {
-    let Some(text) = &cell.value else {
-        return info(None, &cell.sources[0]);
-    };
-    let radix = match radix {
-        Some("H") => 16,
-        Some("O") => 8,
-        _ => 10,
-    };
-    let value = match format {
-        Some("U") => u64::from_str_radix(text, radix).ok().map(Scalar::Unsigned),
-        Some("I") => text.parse::<i64>().ok().map(Scalar::Integer),
-        Some("R") => text
-            .parse::<f64>()
-            .ok()
-            .filter(|n| n.is_finite())
-            .map(|_| Scalar::Decimal(text.clone())),
-        _ => None,
-    };
-    if value.is_none() {
-        unavailable(
-            &cell.sources[0],
-            "Calibration number cannot be interpreted with its declared format",
-        )
-    } else {
-        info(value, &cell.sources[0])
-    }
-}
-
 /// MCF and LGF rows declare the same five coefficients in the same format and radix.
 fn coefficients(
     table: Table,

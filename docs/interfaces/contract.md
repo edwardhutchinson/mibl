@@ -6,8 +6,9 @@ The complete interface set remains the contract for the implementation slices.
 Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
 Issue #10 implements fixed packet lookup and containing occurrences.
 Issue #13 implements basic command lookup. Issue #12 implements monitoring
-calibration resolution. Search, variable packet layouts and PUS lookup follow
-in #17, #11 and #22.
+calibration resolution. Issue #14 implements command argument ranges, aliases
+and conversions. Search, variable packet layouts and PUS lookup follow in #17,
+#11 and #22.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -415,3 +416,68 @@ synthetic equivalent of the surveyed status-reference disagreement and the
 simultaneous-declaration case.
 The unpublished sample MIB resolves every parameter without a panic and shows the
 surveyed category/reference disagreement as an InconsistentDefinition.
+
+## Issue #14 command argument rules
+
+`ValueRules.ranges: Info<Vec<AllowedRange>>`, `aliases: Info<Vec<Alias>>` and
+`calibrations: Info<Vec<CalibrationAlternative>>` carry every retained range
+boundary, alias mapping and command conversion with no public interface
+amendment. The reader adds PRF, PRV, PAF, PAS, CCA and CCS under the shared
+partial-loading and recorded-field rules; a directory holding only these
+supporting rows still loads.
+
+CPC_PRFREF, CPC_PAFREF and CPC_CCAREF name the three families, and each key
+resolves in its own table's key space. A reference the CPC row does not declare
+yields a known-empty collection, which the CLI reports as no declared rule. A
+declared reference without a usable target yields MissingReference for the header
+table, or for the value table when the header resolved but its value rows did
+not, and never removes the argument. Several header rows under one key keep every
+set: each set emits its own entries interpreted by its own declarations, and one
+AmbiguousReference problem lists every candidate definition. The resolved range
+set and alias set header rows are retained in `ValueRules.supporting_definitions`,
+so their recorded fields stay reachable with their provenance.
+
+AllowedRange carries the PRF representation code (PRF_INTER) and one PRV row
+definition per declared boundary. PRF_DSPFMT and PRF_RADIX interpret PRV_MINVAL
+and PRV_MAXVAL: `U` with the declared radix as an unsigned value, `I` as a signed
+integer and `R` as a decimal. `A`, `T` and `D` declare a character or time token
+that has no numeric reduction, so those bounds retain their recorded text as a
+text scalar; the command slice applies that rule around the shared numeric
+interpretation, leaving calibration point interpretation unchanged. An omitted
+PRV_MAXVAL stays unavailable instead of becoming an empty range. Alias carries
+one PAS mapping: the raw value interpreted with PAF_RAWFMT beside the declared
+text. PAF declares no radix column, so alias values are decimal.
+
+PRF_NRANGE, PAF_NALIAS and CCA_NCURVE are compared with the PRV, PAS and CCS rows
+retained for their key. A declared count that disagrees with the number of
+retained rows attaches InconsistentDefinition naming both declarations, their
+values and every available definition, and no row is dropped. A header without
+value rows reports its missing value table instead, and an omitted count is not a
+disagreement.
+
+A CalibrationAlternative holds the CCA row as the calibration definition and its
+CCS points in a CommandConversion form. CCS_XVALS is interpreted with CCA_RAWFMT
+and CCA_RADIX, and CCS_YVALS with CCA_ENGFMT. CCA declares no interpolation and
+CPC_INTER names a raw or engineering input rather than an extrapolation rule, so
+the conversion's interpolation stays unavailable without an invented
+declaration. Malformed established cells drop only their own rows, and unusable
+boundary or point interpretations keep the recorded text beside a structured
+UnsupportedInterpretation problem.
+
+The CLI prints an Argument rules section after the application-data table. An
+argument with declared rules shows its ranges, aliases and conversions in
+declared order, each boundary, mapping and point with its source, and the
+argument with no declared rules contributes nothing. Problem markers attach to
+the affected family or value line, and `--details` adds the recorded fields of
+every reachable PRF, PRV, PAF, PAS, CCA and CCS row.
+
+Cross-check: the reader supplies all seven PRF cells, three PRV cells, four PAF
+cells, three PAS cells, seven CCA cells and three CCS cells; catalog consumers
+join CPC_PRFREF, CPC_PAFREF and CPC_CCAREF with NUMBR and keep display fields in
+definitions. Public library and CLI tests cover each family, combined rules,
+undeclared families, missing and ambiguous references, conflicting declared
+counts, malformed neighbouring rows, omitted optional fields, unavailable
+interpretations, an unavailable argument layout and unchanged snapshots. The
+unpublished sample MIB resolves every command without a panic and shows range,
+alias and conversion values beside the unavailable interpretations its own
+declarations carry.

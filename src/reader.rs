@@ -5,7 +5,10 @@ mod calibrations;
 mod commands;
 use calibrations::*;
 mod variable;
-use commands::{parse_ccf, parse_cdf, parse_cpc};
+use commands::{
+    parse_cca, parse_ccf, parse_ccs, parse_cdf, parse_cpc, parse_paf, parse_pas, parse_prf,
+    parse_prv,
+};
 use variable::parse_vpd;
 
 /// Every retained row owns recorded fields and independent interpreted cells.
@@ -342,6 +345,12 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
     let txf = read_table(directory, "txf.dat", parse_txf);
     let txp = read_table(directory, "txp.dat", parse_txp);
     let cur = read_table(directory, "cur.dat", parse_cur);
+    let cca = read_table(directory, "cca.dat", parse_cca);
+    let ccs = read_table(directory, "ccs.dat", parse_ccs);
+    let paf = read_table(directory, "paf.dat", parse_paf);
+    let pas = read_table(directory, "pas.dat", parse_pas);
+    let prf = read_table(directory, "prf.dat", parse_prf);
+    let prv = read_table(directory, "prv.dat", parse_prv);
     if cur.rows().is_empty()
         && mcf.rows().is_empty()
         && txp.rows().is_empty()
@@ -358,6 +367,12 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         && pic.rows().is_empty()
         && plf.rows().is_empty()
         && vpd.rows().is_empty()
+        && cca.rows().is_empty()
+        && ccs.rows().is_empty()
+        && paf.rows().is_empty()
+        && pas.rows().is_empty()
+        && prf.rows().is_empty()
+        && prv.rows().is_empty()
     {
         return Err(LoadError::NoUsableSupportedRows {
             directory: directory.to_owned(),
@@ -380,12 +395,12 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         ccf,
         cdf,
         cpc,
-        cca: TableLoad::Missing,
-        ccs: TableLoad::Missing,
-        paf: TableLoad::Missing,
-        pas: TableLoad::Missing,
-        prf: TableLoad::Missing,
-        prv: TableLoad::Missing,
+        cca,
+        ccs,
+        paf,
+        pas,
+        prf,
+        prv,
         tcp: TableLoad::Missing,
         pcdf: TableLoad::Missing,
         pcpc: TableLoad::Missing,

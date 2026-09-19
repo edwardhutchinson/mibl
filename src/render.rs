@@ -49,6 +49,11 @@ fn width(i: &Info<u64>) -> String {
     i.value
         .map_or_else(|| "unavailable".into(), |n| format!("{n} bits"))
 }
+fn scalar_value(i: &Info<Scalar>) -> String {
+    i.value
+        .as_ref()
+        .map_or_else(|| "unavailable".into(), scalar)
+}
 fn scalar(s: &Scalar) -> String {
     match s {
         Scalar::Text(s) | Scalar::Code(s) | Scalar::Decimal(s) => quoted(s),
@@ -1053,11 +1058,6 @@ fn coefficient_line(
     )]
 }
 fn calibration_lines(c: &Calibration) -> Vec<String> {
-    let value = |i: &Info<Scalar>| {
-        i.value
-            .as_ref()
-            .map_or_else(|| "unavailable".into(), scalar)
-    };
     match &c.form.value {
         Some(
             CalibrationForm::Numerical {
@@ -1078,8 +1078,8 @@ fn calibration_lines(c: &Calibration) -> Vec<String> {
                 lines.extend(points.iter().map(|p| {
                     format!(
                         "{} -> {} [{}]",
-                        value(&p.raw),
-                        value(&p.engineering),
+                        scalar_value(&p.raw),
+                        scalar_value(&p.engineering),
                         source(&p.definition.source)
                     )
                 }));
@@ -1100,8 +1100,8 @@ fn calibration_lines(c: &Calibration) -> Vec<String> {
                 lines.extend(intervals.iter().map(|i| {
                     format!(
                         "{}..{} -> {} [{}]",
-                        value(&i.low),
-                        value(&i.high),
+                        scalar_value(&i.low),
+                        scalar_value(&i.high),
                         string(&i.text),
                         source(&i.definition.source)
                     )

@@ -30,4 +30,6 @@ impl Drop for Fixture {
     }
 }
 
+/// Each test binary includes this module separately, so not every one reads every fixture.
+#[allow(dead_code)]
 pub const PARAMETER: &str = "TEMP\tTemperature\t\tK\t3\t4\t99\t\t\tN\tR";
