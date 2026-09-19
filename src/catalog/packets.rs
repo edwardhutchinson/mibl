@@ -356,14 +356,9 @@ impl Catalog {
             source,
             |r| Some(self.describe_parameter(r).parameter),
         );
-        let encoded_bits = parameter.value.as_ref().map_or_else(
-            || Info {
-                value: None,
-                problems: parameter.problems.clone(),
-                sources: parameter.sources.clone(),
-            },
-            |p| p.encoding.encoded_bits.clone(),
-        );
+        // Every retained candidate establishes its own width from PTC/PFC, so an ambiguous
+        // reference keeps the width they agree on rather than discarding it.
+        let encoded_bits = consensus_width(&candidate_widths(&rows), &parameter);
         ParameterOccurrence {
             reference: name.clone(),
             parameter,

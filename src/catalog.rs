@@ -149,6 +149,37 @@ fn target<T>(table: Table, key: &str, row: &Row<T>) -> Target {
     }
 }
 
+/// The static encoded width each retained PCF candidate establishes on its own. PTC/PFC
+/// determines it; PCF_WIDTH is a padding declaration and never supplies a candidate's
+/// encoded width.
+fn candidate_widths(rows: &[&Row<Pcf>]) -> Vec<Info<u64>> {
+    rows.iter()
+        .map(|r| base_parameter(r).parameter.encoding.encoded_bits)
+        .collect()
+}
+
+/// One independently established width when every candidate establishes that same width.
+/// Candidates that disagree, a candidate without a width, and no candidates at all each leave
+/// the value unavailable. The reference's own problems and sources survive unchanged, so an
+/// ambiguous reference keeps every candidate beside a width they agree on.
+fn consensus_width(widths: &[Info<u64>], reference: &Info<ParameterSummary>) -> Info<u64> {
+    let value = widths.first().and_then(|first| {
+        first
+            .value
+            .filter(|_| widths.iter().all(|w| w.value == first.value))
+    });
+    Info {
+        value,
+        sources: reference.sources.clone(),
+        problems: reference
+            .problems
+            .iter()
+            .cloned()
+            .chain(widths.iter().flat_map(|w| w.problems.clone()))
+            .collect(),
+    }
+}
+
 /// A declared count and the value rows it covers disagree; both declarations stay available.
 fn count_disagreement(
     declared: &str,

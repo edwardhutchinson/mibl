@@ -413,10 +413,7 @@ impl Catalog {
             source,
             |r| Some(self.describe_parameter(r).parameter),
         );
-        let widths: Vec<_> = rows
-            .iter()
-            .map(|p| base_parameter(p).parameter.encoding.encoded_bits)
-            .collect();
+        let widths = candidate_widths(&rows);
         let mut encoded_bits = consensus_width(&widths, &parameter);
         if let [p] = rows.as_slice()
             && p.cells.ptc.value == Some(11)
@@ -633,22 +630,4 @@ fn duplicate_positions(rows: &[&Row<Vpd>]) -> HashMap<Source, Problem> {
         start = end;
     }
     result
-}
-
-fn consensus_width(widths: &[Info<u64>], parameter: &Info<ParameterSummary>) -> Info<u64> {
-    let value = widths.first().and_then(|first| {
-        first
-            .value
-            .filter(|_| widths.iter().all(|w| w.value == first.value))
-    });
-    Info {
-        value,
-        sources: parameter.sources.clone(),
-        problems: parameter
-            .problems
-            .iter()
-            .cloned()
-            .chain(widths.iter().flat_map(|w| w.problems.clone()))
-            .collect(),
-    }
 }

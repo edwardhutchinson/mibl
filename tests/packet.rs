@@ -405,3 +405,114 @@ fn reverse_occurrences_flag_plf_linked_to_a_variable_packet() {
     );
     assert_eq!(occurrences[0].occurrences.len(), 1);
 }
+
+/// One fixed occurrence of the fixture packet, in retained layout order.
+fn fixed_occurrence(dir: &Fixture, index: usize) -> ParameterOccurrence {
+    let Lookup::Found(packet) = Mib::load(dir.path()).unwrap().packet(PacketSpid(89000)) else {
+        panic!("expected packet 89000")
+    };
+    let layout = packet.layout.value.unwrap();
+    let Layout::Element(occurrence) = &layout[index] else {
+        panic!("expected a fixed occurrence")
+    };
+    occurrence.clone()
+}
+
+#[test]
+fn ambiguous_fixed_parameters_keep_the_width_every_candidate_establishes() {
+    let dir = fixture();
+    // Both candidates declare PTC 3 / PFC 4 and so establish 8 bits, while their PCF_WIDTH
+    // padding declarations disagree: 4 is smaller than the encoded value and 99 is larger.
+    dir.write(
+        "pcf.dat",
+        "ZUT00002\tFirst\t\t\t3\t4\t4\t\t\tN\tR\nZUT00002\tSecond\t\t\t3\t4\t99\t\t\tN\tR",
+    );
+    let mib = Mib::load(dir.path()).unwrap();
+    let Lookup::Found(packet) = mib.packet(PacketSpid(89000)) else {
+        panic!("expected packet")
+    };
+    let layout = packet.layout.value.unwrap();
+    let Layout::Element(occurrence) = &layout[0] else {
+        panic!("expected occurrence")
+    };
+    assert!(occurrence.parameter.value.is_none());
+    assert_eq!(occurrence.location.encoded_bits.value, Some(8));
+    for problems in [
+        &occurrence.parameter.problems,
+        &occurrence.location.encoded_bits.problems,
+    ] {
+        assert_eq!(
+            problems.len(),
+            1,
+            "only the ambiguity is retained: {problems:?}"
+        );
+        let ProblemKind::AmbiguousReference { alternatives, .. } = &problems[0].kind else {
+            panic!("expected an ambiguous reference: {problems:?}")
+        };
+        assert_eq!(alternatives.first.definition.source.line.get(), 1);
+        assert_eq!(alternatives.second.definition.source.line.get(), 2);
+        assert!(alternatives.rest.is_empty());
+    }
+    assert!(matches!(
+        mib.parameter(&ParameterName("ZUT00002".into())),
+        Lookup::Ambiguous(_)
+    ));
+}
+
+#[test]
+fn fixed_occurrence_width_stays_unavailable_without_candidate_agreement() {
+    let dir = fixture();
+    // Candidates that establish different widths share none.
+    dir.write(
+        "pcf.dat",
+        "ZUT00002\tNarrow\t\t\t3\t4\t\t\t\tN\tR\nZUT00002\tWide\t\t\t2\t32\t\t\t\tN\tR",
+    );
+    let occurrence = fixed_occurrence(&dir, 0);
+    assert!(occurrence.parameter.value.is_none());
+    assert!(occurrence.location.encoded_bits.value.is_none());
+    assert!(
+        occurrence
+            .location
+            .encoded_bits
+            .problems
+            .iter()
+            .any(|p| matches!(p.kind, ProblemKind::AmbiguousReference { .. }))
+    );
+    // One candidate that cannot establish a width leaves the shared width unavailable while
+    // keeping its own unsupported interpretation beside the ambiguity.
+    dir.write(
+        "pcf.dat",
+        "ZUT00002\tKnown\t\t\t3\t4\t99\t\t\tN\tR\nZUT00002\tUnknown\t\t\t3\t99\t\t\t\tN\tR",
+    );
+    let occurrence = fixed_occurrence(&dir, 0);
+    assert!(occurrence.location.encoded_bits.value.is_none());
+    let kinds = || {
+        occurrence
+            .location
+            .encoded_bits
+            .problems
+            .iter()
+            .map(|p| &p.kind)
+    };
+    assert!(
+        kinds().any(|kind| matches!(kind, ProblemKind::AmbiguousReference { .. })),
+        "{:?}",
+        occurrence.location.encoded_bits.problems
+    );
+    assert!(
+        kinds().any(|kind| matches!(kind, ProblemKind::UnsupportedInterpretation { .. })),
+        "{:?}",
+        occurrence.location.encoded_bits.problems
+    );
+    // No matching PCF definition leaves the width missing rather than unavailable-by-disagreement.
+    dir.write("pcf.dat", "OTHER\tOther\t\t\t3\t4\t99\t\t\tN\tR");
+    dir.write("plf.dat", "ZUT00002\t89000\t19\t0\nMISSING\t89000\t20\t0");
+    let occurrence = fixed_occurrence(&dir, 1);
+    assert_eq!(occurrence.reference.0, "MISSING");
+    assert!(occurrence.parameter.value.is_none());
+    assert!(occurrence.location.encoded_bits.value.is_none());
+    assert!(matches!(
+        occurrence.location.encoded_bits.problems[0].kind,
+        ProblemKind::MissingReference { .. }
+    ));
+}
