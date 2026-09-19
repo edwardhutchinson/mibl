@@ -26,13 +26,17 @@ or `search QUERY [--scope parameters|packets|commands|all]`. Search defaults to
 all three kinds. Global `--debug` and `--details` flags work before or after the
 verb. `--debug` sends loading and query events to stderr without changing stdout.
 
-Search matches names and descriptions case-insensitively, including packet SPIDs.
-Exact identities rank first, identity prefixes next, then fuzzy matches, favoring
-names over descriptions. Ties use kind, identity and source order, with numeric
-packet identities. All matches appear in a plain candidate table with source
-locations, including duplicates. Blank or unmatched queries print only the table
-header and succeed. `--details` does not change search output. Copy a returned
-identity into the corresponding exact lookup command; search never selects one.
+Search matches every recorded name and the descriptions case-insensitively,
+including packet SPIDs. A packet root matches every TPCF name it records, so a
+name query still finds the packet when its TPCF reference is ambiguous; the table
+keeps showing `unavailable` because no recorded definition is chosen to display a
+hit. Exact identities rank first, identity prefixes next, then fuzzy matches,
+favoring names over descriptions. Ties use kind, identity and source order, with
+numeric packet identities. All matches appear in a plain candidate table with
+source locations, including duplicates. Blank or unmatched queries print only the
+table header and succeed. `--details` does not change search output. Copy a
+returned identity into the corresponding exact lookup command; search never
+selects one.
 
 Details print each reachable definition once, with stable IDs and references
 for its uses. Packet details include parameter descriptions and units. Parameter

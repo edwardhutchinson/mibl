@@ -1,5 +1,5 @@
 use super::*;
-use crate::reader::{Pid, Plf};
+use crate::reader::{Pid, Plf, Tpcf};
 
 impl Catalog {
     pub(super) fn index_packets(&mut self) {
@@ -67,11 +67,7 @@ impl Catalog {
             table: Table::Tpcf,
             key: spid.0.to_string(),
         };
-        let rows: Vec<_> = self
-            .related(Table::Tpcf, spid.0.to_string())
-            .iter()
-            .map(|id| &self.records.tpcf.rows()[id.0])
-            .collect();
+        let rows = self.tpcf_rows(spid);
         let name = resolve(&rows, reference.clone(), &row.definition.source, |r| {
             r.cells.name.value.clone()
         });
@@ -90,6 +86,24 @@ impl Catalog {
             description: row.cells.descr.clone(),
             definition: row.definition.clone(),
         }
+    }
+
+    /// Every TPCF row retained under one packet root, in source order with duplicates kept.
+    fn tpcf_rows(&self, spid: PacketSpid) -> Vec<&Row<Tpcf>> {
+        self.related(Table::Tpcf, spid.0.to_string())
+            .iter()
+            .map(|id| &self.records.tpcf.rows()[id.0])
+            .collect()
+    }
+
+    /// Every TPCF name recorded under one packet root, in source order with duplicates kept.
+    /// An ambiguous reference leaves the packet summary's name unavailable, so these are the
+    /// names search can still discover the root by without choosing a definition.
+    pub(super) fn packet_names(&self, spid: PacketSpid) -> Vec<String> {
+        self.tpcf_rows(spid)
+            .iter()
+            .filter_map(|row| row.cells.name.value.clone())
+            .collect()
     }
 
     pub(super) fn packet_candidate(&self, row: &Row<Pid>) -> Candidate {

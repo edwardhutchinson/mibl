@@ -1060,6 +1060,54 @@ fn search_mode_walkthrough_always_uses_candidate_table_and_reuses_identities() {
 }
 
 #[test]
+fn search_finds_a_packet_by_every_recorded_tpcf_name() {
+    let dir = Fixture::new();
+    dir.write("pid.dat", "3\t25\t42\t0\t0\t100\tPacket\t\t-1\t10");
+    dir.write("tpcf.dat", "100\tUNIQUE_ALPHA\n100\tUNIQUE_BETA");
+    for query in ["UNIQUE", "unique_alpha", "Unique_Beta"] {
+        let output = run(&dir, &["search", query, "--scope", "packets"]);
+        assert!(output.status.success(), "{query}");
+        assert!(output.stderr.is_empty(), "{query}");
+        assert_eq!(output.stdout, run(&dir, &["search", query]).stdout);
+        let text = String::from_utf8(output.stdout.clone()).unwrap();
+        assert_eq!(text.lines().count(), 2, "{query}: {text}");
+        assert!(
+            text.contains("packet") && text.contains("100"),
+            "{query}: {text}"
+        );
+        // Every recorded name is searchable but none is chosen for the table.
+        assert!(text.contains("unavailable"), "{query}: {text}");
+        assert!(!text.contains("UNIQUE_"), "{query}: {text}");
+    }
+    // The returned identity stays usable: exact lookup succeeds and keeps the ambiguity
+    // and both recorded definitions visible.
+    let exact = run(&dir, &["packet", "100"]);
+    assert!(exact.status.success());
+    let details = run(&dir, &["--details", "packet", "100"]);
+    assert!(details.status.success());
+    let text = String::from_utf8(details.stdout).unwrap();
+    assert!(text.contains("Packet 100  unavailable"), "{text}");
+    assert!(
+        text.contains("ambiguous reference; 2 TPCF candidates"),
+        "{text}"
+    );
+    assert!(
+        text.contains("UNIQUE_ALPHA") && text.contains("UNIQUE_BETA"),
+        "{text}"
+    );
+    // Two identical TPCF names are still one candidate row for the one PID root.
+    dir.write("tpcf.dat", "100\tDOUBLE\n100\tDOUBLE");
+    for query in ["double", "DOUBLE"] {
+        let output = run(&dir, &["search", query, "--scope", "packets"]);
+        assert!(output.status.success(), "{query}");
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(text.lines().count(), 2, "{query}: {text}");
+        assert!(text.contains("unavailable"), "{query}: {text}");
+        assert!(!text.contains("DOUBLE"), "{query}: {text}");
+    }
+}
+
+#[test]
 fn variable_packet_cli_shows_group_boundaries_and_runtime_dependencies() {
     let dir = Fixture::new();
     dir.write(

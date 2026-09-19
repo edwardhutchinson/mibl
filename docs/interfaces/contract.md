@@ -129,13 +129,13 @@ kind gives DefinitionsUnavailable; otherwise absent exact identity gives
 NoMatchingIdentity. Exact names are case-sensitive. Candidates retain identity,
 optional name/description and source, so missing display text loses no definition.
 
-Search matches names/descriptions case-insensitively and includes packet SPIDs.
-Rank exact identities, identity prefixes, then fuzzy matches, preferring names
-over descriptions. Ties sort by kind parameter/packet/command, identity with
-numeric SPIDs, then source. Return every qualifying row without a cap. Blank
-queries give an empty vector. Scoring and threshold remain implementation tuning.
-Loading scales with supported input size; exact queries and relationships use
-indexes, while search may scan candidates.
+Search matches every recorded name and the descriptions case-insensitively and
+includes packet SPIDs. Rank exact identities, identity prefixes, then fuzzy
+matches, preferring names over descriptions. Ties sort by kind
+parameter/packet/command, identity with numeric SPIDs, then source. Return every
+qualifying row without a cap. Blank queries give an empty vector. Scoring and
+threshold remain implementation tuning. Loading scales with supported input size;
+exact queries and relationships use indexes, while search may scan candidates.
 
 ## Representative cross-checks
 
@@ -771,3 +771,38 @@ the packet `Layout` width and the retained candidates in both output modes. Both
 paths were also compared over every parameter, packet and command identity of the
 unpublished sample MIB in both output modes: 256 runs, no output or status
 difference. Every fixture is synthetic; no supplied reference row was published.
+
+## Issue #31 search over every recorded packet name
+
+A packet root's name comes from a TPCF reference, and `PacketSummary::name` is
+deliberately unavailable while that reference is ambiguous. Search scored only
+that resolved value, so a query matching one of the recorded names found nothing
+unless it also matched the SPID or the description, making an otherwise usable
+partial dataset undiscoverable by name.
+
+`Catalog::search` now scores every name a candidate records. `Catalog::packet_names`
+returns each TPCF name retained under one packet root, in source order with
+duplicates kept, and `Catalog::searchable_names` combines those with the resolved
+name a candidate already carries, so parameters and commands keep their single
+recorded name. Scoring takes the best match across the identity and those names,
+which keeps the contractual ranking unchanged: exact identity, identity prefix,
+fuzzy identity or name, then description. Existing tie-breaks stay. Each PID root
+still yields exactly one candidate however many of its names match, and duplicate
+PID roots stay separate candidates in source order.
+
+Ambiguity is preserved exactly as before. No TPCF definition is chosen to display
+a hit: the candidate's `name` stays unavailable with its `AmbiguousReference`
+problem and every candidate definition, the candidate table keeps printing
+`unavailable`, and the returned identity resolves in the exact packet lookup to
+the same ambiguous evidence. A root recording one TPCF row is unaffected and
+still shows that recorded name.
+
+Cross-check: only the catalog's existing TPCF supporting index and the existing
+`Candidate` fields are read, so no reader column, public type or renderer changed.
+Public library tests cover distinct competing names, duplicate identical TPCF
+names, duplicate PID roots, case folding and unicode-preserving folding, the
+`Packets` and `All` scopes, one candidate per matching PID root, the retained
+`AmbiguousReference` evidence and the reusable exact-lookup identity. A CLI test
+covers the candidate table for names that never appear in it and the `--details`
+problem evidence naming both TPCF definitions. Every fixture is synthetic; no
+supplied reference row was published.
