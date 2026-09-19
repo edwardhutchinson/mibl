@@ -40,6 +40,12 @@ views list containing packets in numeric SPID order. Fixed repetitions retain
 each expanded occurrence and its bit stride. Values derived from documented
 defaults carry a `[default]` suffix in the overview.
 
+Occurrence and layout sections say `none` only when the sources show the
+collection is empty, and `unavailable` when they cannot: a missing or unreadable
+PLF table, or a declared variable packet structure whose VPD rows are absent,
+leaves the occurrences unavailable with its missing-reference problem. Known
+fixed and variable occurrences stay visible beside that problem.
+
 Tables use spaces aligned by Unicode display width. Printable text is preserved
 in full, controls are escaped, and output is identical on terminals and when
 redirected. There is no wrapping, truncation, color or pager.

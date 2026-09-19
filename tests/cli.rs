@@ -607,6 +607,56 @@ fn duplicate_positions_are_not_collapsed_and_unavailable_layout_is_not_empty() {
 }
 
 #[test]
+fn parameter_packets_say_none_only_when_every_occurrence_source_is_known() {
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    for prefix in [vec![], vec!["--details"]] {
+        let mut args = prefix.clone();
+        args.extend(["parameter", "TEMP"]);
+        let output = run(&dir, &args);
+        assert!(
+            output.status.success(),
+            "a usable root definition stays Found with status 0"
+        );
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains("\nPackets\nunavailable\n"), "{text}");
+        assert!(!text.contains("\nPackets\nnone\n"), "{text}");
+        assert!(text.contains("no matching PLF definition"), "{text}");
+        assert!(
+            text.contains("Units: K"),
+            "the definition stays usable: {text}"
+        );
+    }
+    // A readable PLF table without a matching row is a known empty result.
+    dir.write("plf.dat", "");
+    for prefix in [vec![], vec!["--details"]] {
+        let mut args = prefix.clone();
+        args.extend(["parameter", "TEMP"]);
+        let output = run(&dir, &args);
+        assert!(output.status.success());
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains("\nPackets\nnone\n"), "{text}");
+        assert!(!text.contains("\nPackets\nunavailable\n"), "{text}");
+        assert!(!text.contains("no matching PLF definition"), "{text}");
+    }
+    // A declared variable packet structure without VPD data stays unavailable.
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t89001\tDemonstration variable packet\t\t7\t10",
+    );
+    for prefix in [vec![], vec!["--details"]] {
+        let mut args = prefix.clone();
+        args.extend(["parameter", "TEMP"]);
+        let output = run(&dir, &args);
+        assert!(output.status.success());
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains("\nPackets\nunavailable\n"), "{text}");
+        assert!(text.contains("no matching VPD definition"), "{text}");
+    }
+}
+
+#[test]
 fn command_overview_and_details_show_arguments_fixed_areas_and_runtime_evidence() {
     let dir = Fixture::new();
     dir.write(

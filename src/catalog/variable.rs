@@ -11,6 +11,40 @@ struct Cursor {
 }
 
 impl Catalog {
+    /// Whether every source that could declare a parameter occurrence is readable, or provably
+    /// declares none: a readable PLF table, and VPD data for every declared variable packet
+    /// structure. Only then is an absent occurrence list a known empty, not an unknown.
+    pub(super) fn occurrence_sources_are_known(&self) -> bool {
+        matches!(self.records.plf, TableLoad::Read { .. }) && self.missing_vpd_problems().is_empty()
+    }
+
+    /// One missing VPD reference per declared variable packet structure whose VPD data is
+    /// unavailable, under the declared PID_TPSD key. Both the reported problems and the
+    /// occurrence availability come from this one set, so they cannot disagree. Two PID roots
+    /// declaring one TPSD describe one structure and report one reference.
+    fn missing_vpd_problems(&self) -> Vec<Problem> {
+        self.supporting
+            .iter()
+            .filter(|((table, key), _)| *table == Table::Pid && self.vpd_data_unavailable(key))
+            .flat_map(|((_, key), ids)| {
+                missing_problems(
+                    Reference::Supporting {
+                        table: Table::Vpd,
+                        key: key.clone(),
+                    },
+                    &self.records.pid.rows()[ids[0].0].definition.source,
+                )
+            })
+            .collect()
+    }
+
+    /// Whether no source supplies VPD data for one declared TPSD: a missing or unreadable table,
+    /// or a readable table with no retained row under that key. The key index reports the same
+    /// absence for all three, which is what the layout and the availability both depend on.
+    fn vpd_data_unavailable(&self, tpsd: &str) -> bool {
+        self.related(Table::Vpd, tpsd.to_owned()).is_empty()
+    }
+
     pub(super) fn variable_layout(
         &self,
         packet: &Row<Pid>,
@@ -35,12 +69,7 @@ impl Catalog {
         source: &Source,
     ) -> Info<Vec<Layout<ParameterOccurrence>>> {
         let key = tpsd.to_string();
-        let mut rows: Vec<_> = self
-            .related(Table::Vpd, key.clone())
-            .iter()
-            .map(|id| &self.records.vpd.rows()[id.0])
-            .collect();
-        if !matches!(self.records.vpd, TableLoad::Read { .. }) || rows.is_empty() {
+        if self.vpd_data_unavailable(&key) {
             return missing(
                 Reference::Supporting {
                     table: Table::Vpd,
@@ -49,6 +78,11 @@ impl Catalog {
                 source,
             );
         }
+        let mut rows: Vec<_> = self
+            .related(Table::Vpd, tpsd.to_string())
+            .iter()
+            .map(|id| &self.records.vpd.rows()[id.0])
+            .collect();
         rows.sort_by_key(|r| (r.cells.pos.value, r.definition.source.clone()));
         let mut cursor = Cursor {
             bits,
@@ -67,20 +101,8 @@ impl Catalog {
         name: &ParameterName,
         result: &mut Info<Vec<PacketOccurrences>>,
     ) {
-        for ((table, key), ids) in &self.supporting {
-            if *table == Table::Pid && self.related(Table::Vpd, key.clone()).is_empty() {
-                let source = &self.records.pid.rows()[ids[0].0].definition.source;
-                result.problems.extend(
-                    missing::<()>(
-                        Reference::Supporting {
-                            table: Table::Vpd,
-                            key: key.clone(),
-                        },
-                        source,
-                    )
-                    .problems,
-                );
-            }
+        for problem in self.missing_vpd_problems() {
+            result.problems.push(problem);
         }
         result.problems.sort_by_key(|p| p.sources.clone());
         if !matches!(self.records.vpd, TableLoad::Read { .. }) {
