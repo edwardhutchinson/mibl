@@ -7,8 +7,8 @@ Issue #9 implements explicit-directory loading, PCF lookup and CLI rendering.
 Issue #10 implements fixed packet lookup and containing occurrences.
 Issue #13 implements basic command lookup. Issue #12 implements monitoring
 calibration resolution. Issue #14 implements command argument ranges, aliases
-and conversions. Search, variable packet layouts and PUS lookup follow in #17,
-#11 and #22.
+and conversions. Issue #15 implements nested command argument groups. Search,
+variable packet layouts and PUS lookup follow in #17, #11 and #22.
 
 Sources: [issue #8](https://github.com/edwardhutchinson/mibl/issues/8),
 [canonical contract](https://github.com/edwardhutchinson/mibl/issues/6#issuecomment-5648605950),
@@ -481,3 +481,84 @@ interpretations, an unavailable argument layout and unchanged snapshots. The
 unpublished sample MIB resolves every command without a panic and shows range,
 alias and conversion values beside the unavailable interpretations its own
 declarations carry.
+
+## Issue #15 nested command argument groups
+
+`CommandDescription.arguments: Info<Vec<Layout<CommandElement>>>` carries the
+declared group structure with no public interface amendment. The existing tree
+types and `Location` fields hold every declared element, group, repetition and
+position rule, so neither a public type, field nor operation is added. The reader
+already supplies the ten CDF cells, so no reader change is needed either.
+
+CDF declares the unexpanded application data: `CDF_ELTYPE` is `A` for a fixed
+area, `F` for a non-editable parameter and `E` for an editable parameter, and an
+element declaring `CDF_GRPSIZE` is a repeater whose value at command invocation
+repeats the following declared elements. The catalog therefore resolves a
+command's elements recursively over declared layout order: `CDF_BIT` then source
+line, with duplicates in source order. A repeater stays a declared element
+beside the `Layout::Repeat` node holding the elements it repeats, so a counter
+transmits once while its group repeats. `CDF_GRPSIZE` counts following declared
+records, including nested repeaters, so groups nest as subtrees: S2KTC074's
+declaration gives `N1`, `Layout::Repeat` of `APID`, `N2` and the `Layout::Repeat`
+of `Type`, `N3` and the `Layout::Repeat` of `Subtype`.
+
+CDF has no fixed-count column, so every group repetition is
+`Repetition::Runtime` with a `RuntimeDependent` problem and a dependency on the
+repeater's declared value source: the telemetry parameter of `CDF_INTER=T`, or
+the CPC definition of `CDF_PNAME` that the MIB records or an operator supplies.
+The declaration names which of those supplies the count and the recorded value
+where one is declared, which keeps statically known information visible without
+turning it into a guaranteed count. No group is expanded, and nothing evaluates a
+command invocation. Members therefore carry no enclosure list of their own: the
+tree preserves group membership, and each member and following element keeps the
+group's unexpanded-position rule in `Location.constraints`, which has no
+dependencies of its own so that one group does not repeat the same target
+reference at every member.
+
+`CDF_BIT` is never presented as a guaranteed absolute runtime offset. Every
+command element keeps `Position::ApplicationDeclaredBit` with its declared value,
+the group's declaration states that the declared positions assume one repetition,
+and `Location.constraints` on members and following elements records that their
+offsets shift with the group.
+
+Contradictory and incomplete declarations stay beside the affected group or
+element while retaining usable data. A fixed area declaring `CDF_GRPSIZE` cannot
+supply a repetition count, so its repetition is unavailable with
+InconsistentDefinition naming `CDF_ELTYPE`, `CDF_GRPSIZE` and every available
+definition, and its members remain in the tree. A `CDF_GRPSIZE` that declares more
+elements than its group retains keeps the retained members with
+InconsistentDefinition naming the declared size and every available definition, and
+a declared size above the schema's 1 to 99 range keeps the declared group clamped
+to the retained elements with that disagreement. A size below one element, or
+nesting beyond the supported depth, leaves the repeater an element with that
+problem, and the elements it declared stay declared elements at the enclosing
+level; that is the unsupported-extension behavior of VPD repetition. A declared
+source whose target never resolved keeps its missing or ambiguous reference
+problem beside the group. Duplicate declared positions keep every element in source
+order with the existing InconsistentDefinition evidence, inside groups as well as
+at the top level.
+
+A group node's `definition` is the repeater's CDF row, so the declared
+`CDF_GRPSIZE` value and every other recorded cell stay structurally available
+beside the runtime declaration, and `children` carries the retained members.
+
+The CLI prints the application data of a command with declared groups as
+two-space nested blocks with `Repeat group` and `End repeat` boundaries, matching
+the packet layout convention, and keeps the aligned table when no group is
+declared. Group rows carry their declaration source and a problem marker. A
+declared condition would print the same way under a `Conditional structure` row, so
+every variant of the shared tree type renders as nesting instead of flattening; CDF
+declares no conditions.
+
+Cross-check: the reader supplies all ten CDF cells; the catalog consumes
+`CDF_CNAME`, `CDF_ELTYPE`, `CDF_ELLEN`, `CDF_BIT`, `CDF_GRPSIZE`, `CDF_PNAME`,
+`CDF_INTER`, `CDF_VALUE` and `CDF_TMID` and joins `CDF_PNAME` with CPC and
+`CDF_TMID` with PCF. Public library tests cover the synthetic equivalent of
+S2KTC074, editable and telemetry repetition sources, missing targets, fixed areas
+inside groups and as repeaters, incomplete groups, out-of-range and clamped sizes,
+elements following a group, the supported nesting depth and duplicate positions
+inside a group. Focused CLI checks cover nested rendering in both output modes, the
+flat table for a command without declared groups, and fixed-area and incomplete
+declarations whose problems and usable elements render beside each other. The unpublished sample MIB resolves every command
+without a panic and renders S2KTC074's nested repetitions with their recorded
+counter values.

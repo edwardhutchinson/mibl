@@ -44,6 +44,13 @@ Tables use spaces aligned by Unicode display width. Printable text is preserved
 in full, controls are escaped, and output is identical on terminals and when
 redirected. There is no wrapping, truncation, color or pager.
 
+Command application data keeps declared group nesting: an element declaring
+`CDF_GRPSIZE` is a repeater whose value repeats the elements that follow it, so
+such a command prints nested `Repeat group` blocks naming the element that
+supplies the count, its recorded value, its source and its problem markers.
+Repetition stays runtime-dependent, declared positions keep their unexpanded
+`CDF_BIT` values, and no command invocation is expanded.
+
 Duplicate roots produce a candidate table in either mode and exit with status 3.
 Found results with local problems also exit with status 0. Missing identities
 exit silently with status 1 outside debug mode. Configuration, loading and output
