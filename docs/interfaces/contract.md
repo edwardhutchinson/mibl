@@ -738,3 +738,36 @@ for two PID roots sharing a TPSD, a variable occurrence kept beside a missing PL
 table, and a fixed occurrence kept beside an unavailable variable structure. CLI
 tests cover `none` against `unavailable` for the `Packets` section in both output
 modes with the missing-reference problem retained beside a usable definition.
+
+## Issue #30 fixed occurrence width consensus
+
+A fixed PLF occurrence derived its encoded width only from a uniquely resolved
+parameter summary, so an ambiguous PCF reference discarded a width that every
+candidate established independently. `Catalog::occurrence` now derives that width
+from every retained candidate through the same shared consensus the variable
+layout uses: the width survives when all candidates establish the same value, and
+stays `None` when candidates disagree, when a candidate cannot establish a width,
+or when no definition matches the declared name. The ambiguous parameter summary,
+its `AmbiguousReference` problem and every candidate definition stay on the
+occurrence and on its width unchanged, no candidate is selected, and the exact
+parameter lookup for a duplicated name stays `Ambiguous`.
+
+PTC/PFC still determines the encoded extraction width. `PCF_WIDTH` remains the
+padding declaration and is never consulted for a fixed occurrence's width, so
+candidates declaring equal PTC/PFC with different `PCF_WIDTH` keep the shared
+PTC/PFC width. Sharing one candidate-width derivation also gives a fixed
+occurrence's width the sources the variable layout already retains: the declaring
+PLF row beside every candidate PCF row. Nothing reads that list for a fixed
+occurrence, so the rendered output is unchanged.
+
+Cross-check: the candidate-width derivation and the consensus helper are both
+shared with the variable layout, so the fixed and variable paths cannot disagree
+about what a candidate establishes or what agreement means. Public library
+tests cover two candidates that agree while their `PCF_WIDTH` declarations
+disagree, candidates whose PTC/PFC establish different widths, a candidate whose
+PTC/PFC declares no supported width, and a name with no matching definition, and
+confirm the duplicate exact parameter lookup stays `Ambiguous`. A CLI test covers
+the packet `Layout` width and the retained candidates in both output modes. Both
+paths were also compared over every parameter, packet and command identity of the
+unpublished sample MIB in both output modes: 256 runs, no output or status
+difference. Every fixture is synthetic; no supplied reference row was published.

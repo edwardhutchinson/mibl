@@ -87,6 +87,8 @@ rows or other supported files fail.
 Missing or ambiguous links remain local problems on found definitions. Duplicate
 positions and conflicting identification widths retain their source definitions.
 Fixed extraction widths come from PTC/PFC, not the PCF_WIDTH padding declaration.
+An ambiguous parameter reference keeps the width every candidate establishes, and
+loses it only when the candidates disagree, cannot establish one, or are absent.
 
 Command views show ordered basic arguments and fixed application-data areas,
 CPC defaults, recorded element values and explicit telemetry dependencies.

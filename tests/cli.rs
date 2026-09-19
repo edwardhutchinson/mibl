@@ -432,6 +432,48 @@ fn pic_ambiguity_preserves_known_pi2_width_and_default_expected_value() {
 }
 
 #[test]
+fn fixed_packet_layout_keeps_the_width_of_ambiguous_parameter_candidates() {
+    let dir = Fixture::new();
+    // Both DEMO candidates declare PTC 3 / PFC 4 and so establish 8 bits, while their
+    // PCF_WIDTH padding declarations disagree.
+    dir.write(
+        "pcf.dat",
+        "DEMO\tFirst\t\t\t3\t4\t4\t\t\tN\tR\nDEMO\tSecond\t\t\t3\t4\t99\t\t\tN\tR",
+    );
+    dir.write("pid.dat", "3\t25\t1\t0\t0\t42\tSynthetic\t\t-1\t0");
+    dir.write("plf.dat", "DEMO\t42\t0\t0");
+    dir.write("tpcf.dat", "42\tPACKET");
+    dir.write("pic.dat", "3\t25\t-1\t0\t-1\t0");
+    for details in [false, true] {
+        let args = if details {
+            vec!["--details", "packet", "42"]
+        } else {
+            vec!["packet", "42"]
+        };
+        let output = run(&dir, &args);
+        assert!(output.status.success() && output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        assert!(text.contains("DEMO       byte 0 bit 0  8 bits"), "{text}");
+        assert!(
+            text.contains("ambiguous reference; 2 PCF candidates"),
+            "{text}"
+        );
+        if details {
+            assert!(
+                text.contains("Candidate: PCF NAME DEMO: pcf.dat:1")
+                    && text.contains("Candidate: PCF NAME DEMO: pcf.dat:2"),
+                "{text}"
+            );
+        }
+    }
+    // The duplicate exact parameter lookup keeps reporting both candidates.
+    let ambiguous = run(&dir, &["parameter", "DEMO"]);
+    assert_eq!(ambiguous.status.code(), Some(3));
+    let text = String::from_utf8(ambiguous.stdout).unwrap();
+    assert!(text.contains("pcf.dat:1") && text.contains("pcf.dat:2"));
+}
+
+#[test]
 fn long_unicode_text_and_controls_survive_both_modes_and_redirection() {
     use std::{fs::File, process::Stdio};
     let dir = Fixture::new();
