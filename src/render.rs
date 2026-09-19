@@ -107,6 +107,13 @@ fn field_value<'a>(d: &'a Definition, name: &str) -> Option<&'a Scalar> {
         .as_ref()
         .map(|i| &i.value)
 }
+/// A recorded textual field, printed without the quoting that marks an interpreted value.
+fn recorded_text<'a>(d: &'a Definition, name: &str) -> Option<&'a str> {
+    match field_value(d, name)? {
+        Scalar::Text(s) | Scalar::Code(s) | Scalar::Decimal(s) => Some(s),
+        _ => None,
+    }
+}
 fn parameter_summary(p: &ParameterSummary) -> Vec<String> {
     let e = &p.encoding;
     let kind = encoding_kind(e);

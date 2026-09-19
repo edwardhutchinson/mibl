@@ -28,6 +28,16 @@ impl Catalog {
             }
         }
         let (index, records) = (&mut self.supporting, &self.records);
+        // TCP roots by identifier, PCDF rows by their TCP and PCPC rows by parameter name.
+        index_rows(index, Table::Tcp, records.tcp.rows(), |c| {
+            c.id.value.as_deref()
+        });
+        index_rows(index, Table::Pcdf, records.pcdf.rows(), |c| {
+            c.tcname.value.as_deref()
+        });
+        index_rows(index, Table::Pcpc, records.pcpc.rows(), |c| {
+            c.pname.value.as_deref()
+        });
         // The command value rules key on NUMBR, in the same per-table key space as the calibrations.
         index_rows(index, Table::Cca, records.cca.rows(), |c| {
             c.numbr.value.as_deref()
@@ -59,10 +69,7 @@ impl Catalog {
                     definition: row.definition.clone(),
                     description: row.cells.descr.clone(),
                     arguments: self.command_layout(row),
-                    header: unavailable(
-                        &row.definition.source,
-                        "Command header expansion is not implemented yet",
-                    ),
+                    header: self.command_header(row),
                 })
             }
             Some([first, second, rest @ ..]) => Lookup::Ambiguous(AtLeastTwo {

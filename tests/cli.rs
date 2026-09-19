@@ -1175,3 +1175,161 @@ fn pus_packet_candidates_show_unavailable_unsigned_coordinates() {
         Some("-")
     );
 }
+
+#[test]
+fn command_header_section_expands_the_packet_header_separately_from_application_data() {
+    let dir = Fixture::new();
+    dir.write("ccf.dat", "DEMO_TC\tDemonstration command\t\t\t\tHDR");
+    dir.write("cdf.dat", "DEMO_TC\tE\t\t8\t0\t0\tARG\tR");
+    dir.write("cpc.dat", "ARG\tArgument\t3\t4");
+    dir.write("tcp.dat", "HDR\tDemonstration header");
+    dir.write(
+        "pcdf.dat",
+        &[
+            "HDR\tTrailer\tF\t8\t16\t\t0A\tD",
+            "HDR\tVersion Number\tF\t3\t0\t\t5\tH",
+            "HDR\tCount\tP\t8\t8\tP007\t17\t",
+        ]
+        .join("\n"),
+    );
+    dir.write("pcpc.dat", "P007\tInteger sequence count\tI");
+    for prefix in [vec![], vec!["--details"]] {
+        let mut args = prefix.clone();
+        args.extend(["command", "DEMO_TC"]);
+        let output = run(&dir, &args);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        for expected in [
+            "Header\nTCP HDR  Demonstration header\nSource: tcp.dat:1",
+            "Field",
+            "Parameter",
+            "Kind",
+            "Value",
+            "Version Number",
+            "header bit 0",
+            "3 bits",
+            "F fixed",
+            "0 [H]",
+            "Trailer",
+            "header bit 16",
+            "10 [H]",
+            "Count",
+            "P007",
+            "header bit 8",
+            "P set automatically at invocation",
+            "17 [D] (declared default)",
+        ] {
+            assert!(text.contains(expected), "missing {expected}: {text}");
+        }
+        // Declared header offsets order the elements, and the section follows the arguments.
+        let header = text.find("\nHeader\n").unwrap();
+        assert!(text.find("\nApplication data\n").unwrap() < header);
+        assert!(text.find("\nArgument rules\n").unwrap() < header);
+        let offset = |name: &str| text.find(name).unwrap();
+        assert!(offset("Version Number") < offset("Count") && offset("Count") < offset("Trailer"));
+        if prefix.is_empty() {
+            assert!(!text.contains("PCDF_TYPE"), "{text}");
+            assert!(!text.contains("PCPC_CODE"), "{text}");
+            assert!(text.contains("Use --details"), "{text}");
+        } else {
+            for expected in [
+                "TCP_ID",
+                "TCP_DESC",
+                "PCDF_TCNAME",
+                "PCDF_TYPE",
+                "PCDF_LEN",
+                "PCDF_BIT",
+                "PCDF_PNAME",
+                "PCDF_VALUE",
+                "PCDF_RADIX",
+                "PCPC_PNAME",
+                "PCPC_CODE",
+                "Used by: Command header",
+                "Used by: Header element Version Number at header bit 0",
+            ] {
+                assert!(text.contains(expected), "missing {expected}: {text}");
+            }
+        }
+    }
+}
+
+#[test]
+fn command_header_problems_render_beside_the_usable_arguments() {
+    let dir = Fixture::new();
+    dir.write("ccf.dat", "DEMO_TC\tDemonstration command\t\t\t\tHDR");
+    dir.write("cdf.dat", "DEMO_TC\tE\t\t8\t0\t0\tARG\tR");
+    dir.write("cpc.dat", "ARG\tArgument\t3\t4");
+    // The commanded packet header is declared nowhere.
+    let output = run(&dir, &["command", "DEMO_TC"]);
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("Application data"), "{text}");
+    assert!(
+        text.contains("Header\nunavailable") && text.contains("missing reference"),
+        "{text}"
+    );
+    assert!(text.contains("no matching TCP definition"), "{text}");
+    // A declared header keeps every element and reports the unresolved links.
+    dir.write("tcp.dat", "HDR\tDemonstration header");
+    dir.write(
+        "pcdf.dat",
+        "HDR\tAPID\tA\t11\t5\tP002\t1\tH\nHDR\tGhost\tA\t8\t16\tP404\t1\tH",
+    );
+    dir.write("pcpc.dat", "P002\tFirst APID\tU\nP002\tSecond APID\tU");
+    let output = run(&dir, &["command", "DEMO_TC"]);
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    for expected in [
+        "Header",
+        "Ghost",
+        "P002",
+        "P404",
+        "A APID from CCF_APID",
+        "ambiguous reference; 2 PCPC candidates.",
+        "missing reference; no matching PCPC definition.",
+        "unavailable",
+    ] {
+        assert!(text.contains(expected), "missing {expected}: {text}");
+    }
+    // Fixed areas below a duplicate offset keep their content beside the disagreement.
+    dir.write(
+        "pcdf.dat",
+        "HDR\tFirst at zero\tF\t3\t0\t\t5\tH\nHDR\tSecond at zero\tF\t3\t0\t\t1\tH",
+    );
+    let output = run(&dir, &["command", "DEMO_TC"]);
+    assert!(output.status.success());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("inconsistent definition"), "{text}");
+    assert!(
+        text.contains("Duplicate declared packet header element offsets"),
+        "{text}"
+    );
+    assert!(text.contains("Second at zero"), "{text}");
+}
+
+#[test]
+fn command_header_recorded_text_keeps_controls_escaped_and_columns_aligned() {
+    let dir = Fixture::new();
+    dir.write("ccf.dat", "DEMO_TC\tDemonstration command\t\t\t\tHDR");
+    dir.write("cdf.dat", "DEMO_TC\tE\t\t8\t0\t0\tARG\tR");
+    dir.write("cpc.dat", "ARG\tArgument\t3\t4");
+    dir.write("tcp.dat", "HDR\tNominal\u{7} header");
+    dir.write("pcdf.dat", "HDR\tPkt Version\u{b}Number\tF\t3\t0\t\t5\tH");
+    dir.write("pcpc.dat", "P001\tAck Flags\tU");
+    let output = run(&dir, &["--details", "command", "DEMO_TC"]);
+    assert!(output.status.success());
+    assert!(output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    for expected in ["Nominal\\u{7} header", "Pkt Version\\u{b}Number"] {
+        assert!(text.contains(expected), "missing {expected}: {text}");
+    }
+    assert!(!text.contains('\u{7}') && !text.contains('\u{b}'), "{text}");
+    assert!(!text.contains('\t'), "{text}");
+}

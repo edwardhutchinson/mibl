@@ -73,9 +73,10 @@ if the source files change or disappear. Results can outlive the snapshot.
 The loader reads `pcf.dat`, `pid.dat`, `tpcf.dat`, `pic.dat`, `plf.dat`, `vpd.dat`,
 `cur.dat`, `caf.dat`, `cap.dat`, `mcf.dat`, `lgf.dat`, `txf.dat`, `txp.dat`,
 `ccf.dat`, `cdf.dat`, `cpc.dat`, `prf.dat`, `prv.dat`, `paf.dat`, `pas.dat`,
-`cca.dat` and `ccs.dat`. Supporting tables can form a usable snapshot even without
-root definitions. The loader accepts omitted optional fields and extra trailing
-columns, and keeps usable rows when neighboring rows or other supported files fail.
+`cca.dat`, `ccs.dat`, `tcp.dat`, `pcdf.dat` and `pcpc.dat`. Supporting tables can
+form a usable snapshot even without root definitions. The loader accepts omitted
+optional fields and extra trailing columns, and keeps usable rows when neighboring
+rows or other supported files fail.
 
 Missing or ambiguous links remain local problems on found definitions. Duplicate
 positions and conflicting identification widths retain their source definitions.
@@ -118,8 +119,16 @@ that declares none. The command view prints an `Argument rules` section with eac
 value and its source; `--details` adds the recorded range, alias and conversion
 rows.
 
-Command headers and nested command repetitions belong to later slices.
-Unimplemented relationships carry unsupported-interpretation problems.
+Command headers expand as their own section, separate from the application data.
+`CCF_PKTID` names the TCP packet header, and its PCDF records describe each header
+element in declared bit-offset order: a fixed area keeps the recorded content the
+command is encoded with, and a parameter element links the PCPC definition that
+describes it and keeps that element's declared default interpreted with the linked
+parameter's code and radix. The element type names the source a command load takes
+the value from, such as `CCF_APID` for an APID element or the command subsystem for
+an element it sets automatically. Missing, ambiguous, contradictory and unsupported
+stay beside the elements that remain usable, and a command whose header cannot be
+resolved stays found with its arguments and a missing reference.
 
 The [interface contract](docs/interfaces/contract.md) describes the complete
 accepted interface set. Local references and example mission data stay unpublished.
