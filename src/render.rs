@@ -140,13 +140,16 @@ fn position(p: &Info<Position>) -> String {
         None => "unavailable".into(),
     }
 }
+fn table_label(table: &Table) -> String {
+    format!("{table:?}").to_uppercase()
+}
 fn reference(r: &Reference) -> String {
     match r {
         Reference::Root(Identity::Parameter(n)) => format!("PCF NAME {}", text(&n.0)),
         Reference::Root(Identity::Packet(n)) => format!("PID SPID {}", n.0),
         Reference::Root(Identity::Command(n)) => format!("CCF NAME {}", text(&n.0)),
         Reference::Supporting { table, key } => {
-            format!("{} {}", format!("{table:?}").to_uppercase(), text(key))
+            format!("{} {}", table_label(table), text(key))
         }
         Reference::Deferred { concept, key } => format!("{} {}", text(concept), text(key)),
     }
@@ -330,7 +333,6 @@ impl View {
         self.info(&p.encoding.endian, &format!("{context} endian"));
         self.info(&p.units, &format!("{context} units"));
         self.info(&p.calibrations, &format!("{context} calibration"));
-        // Calibration joins are currently unavailable. Walk supplied alternatives only.
         if let Some(alts) = &p.calibrations.value {
             for (index, a) in alts.iter().enumerate() {
                 let context = format!("{context} calibration alternative {}", index + 1);
@@ -348,10 +350,11 @@ impl View {
         }
     }
     fn calibration(&mut self, c: &Calibration, context: &str) {
-        self.definition(
+        let id = self.definition(
             &c.definition,
             &format!("{context}, {}", reference(&c.reference)),
         );
+        self.definitions[id - 1].summary = Some(calibration_lines(c));
         self.info(&c.form, context);
         match &c.form.value {
             Some(
@@ -585,11 +588,31 @@ fn problem_summary(p: &Problem) -> String {
         ProblemKind::AmbiguousReference {
             reference: r,
             alternatives: a,
-        } => format!(
-            "ambiguous reference; {} {} candidates.",
-            a.rest.len() + 2,
-            reference(r).split_whitespace().next().unwrap_or("target")
-        ),
+        } => {
+            // One key can resolve in several supporting tables, so name every table holding a candidate.
+            let mut tables: Vec<String> = Vec::new();
+            for target in alternatives(a) {
+                if let Reference::Supporting { table, .. } = &target.reference {
+                    let label = table_label(table);
+                    if !tables.contains(&label) {
+                        tables.push(label);
+                    }
+                }
+            }
+            let target = if tables.is_empty() {
+                reference(r)
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or("target")
+                    .to_owned()
+            } else {
+                tables.join(", ")
+            };
+            format!(
+                "ambiguous reference; {} {target} candidates.",
+                a.rest.len() + 2,
+            )
+        }
         ProblemKind::InconsistentDefinition { fields, values, .. }
             if fields
                 .iter()
@@ -602,11 +625,6 @@ fn problem_summary(p: &Problem) -> String {
         }
         ProblemKind::InconsistentDefinition { .. } => {
             format!("inconsistent definition; {}", text(&p.explanation))
-        }
-        ProblemKind::UnsupportedInterpretation { .. }
-            if p.explanation == "Calibration expansion is not implemented yet" =>
-        {
-            "unsupported interpretation; expansion is not implemented.".into()
         }
         ProblemKind::UnsupportedInterpretation { .. } => {
             format!("unsupported interpretation; {}", text(&p.explanation))
@@ -727,6 +745,36 @@ pub(super) fn parameter(
         }
     } else {
         writeln!(out, "unavailable")?;
+    }
+    writeln!(out, "\nCalibrations")?;
+    match &p.parameter.calibrations.value {
+        Some(alternatives) if alternatives.is_empty() => writeln!(out, "none declared")?,
+        Some(alternatives) => {
+            for (i, a) in alternatives.iter().enumerate() {
+                writeln!(out, "Alternative {}", i + 1)?;
+                if let Some(condition) = &a.condition {
+                    writeln!(
+                        out,
+                        "  Condition: {} [runtime dependent]",
+                        text(&condition.expression)
+                    )?;
+                }
+                if let Some(c) = &a.calibration.value {
+                    writeln!(
+                        out,
+                        "  {} at {}",
+                        reference(&c.reference),
+                        source(&c.definition.source)
+                    )?;
+                    for line in calibration_lines(c) {
+                        writeln!(out, "  {line}")?;
+                    }
+                } else {
+                    writeln!(out, "  unavailable")?;
+                }
+            }
+        }
+        None => writeln!(out, "unavailable")?,
     }
     view.finish(details, out)
 }
@@ -968,5 +1016,101 @@ fn encoding_kind(e: &Encoding) -> &'static str {
         Some(11) => "deduced",
         Some(13) => "saved synthetic",
         _ => "unavailable",
+    }
+}
+
+/// The documented-default marker of the first of `names` that carries one.
+fn default_suffix_any(d: &Definition, names: &[&str]) -> &'static str {
+    names
+        .iter()
+        .map(|name| default_suffix(d, name))
+        .find(|suffix| !suffix.is_empty())
+        .unwrap_or("")
+}
+fn coefficient_line(
+    label: &str,
+    prefix: &str,
+    coefficients: &[Info<Scalar>],
+    d: &Definition,
+) -> Vec<String> {
+    vec![format!(
+        "{label} coefficients A0..A4: {}",
+        coefficients
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                let value = v
+                    .value
+                    .as_ref()
+                    .map_or_else(|| "unavailable".to_owned(), scalar);
+                format!(
+                    "{value}{}",
+                    default_suffix(d, &format!("{prefix}{}", i + 1))
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    )]
+}
+fn calibration_lines(c: &Calibration) -> Vec<String> {
+    let value = |i: &Info<Scalar>| {
+        i.value
+            .as_ref()
+            .map_or_else(|| "unavailable".into(), scalar)
+    };
+    match &c.form.value {
+        Some(
+            CalibrationForm::Numerical {
+                points,
+                interpolation,
+            }
+            | CalibrationForm::CommandConversion {
+                points,
+                interpolation,
+            },
+        ) => {
+            let mut lines = vec![format!(
+                "Numerical curve; extrapolation: {}{}",
+                string(interpolation),
+                default_suffix_any(&c.definition, &["CAF_INTER", "CCA_INTER"])
+            )];
+            if let Some(points) = &points.value {
+                lines.extend(points.iter().map(|p| {
+                    format!(
+                        "{} -> {} [{}]",
+                        value(&p.raw),
+                        value(&p.engineering),
+                        source(&p.definition.source)
+                    )
+                }));
+            } else {
+                lines.push("Points: unavailable".into());
+            }
+            lines
+        }
+        Some(CalibrationForm::Polynomial { coefficients }) => {
+            coefficient_line("Polynomial", "MCF_POL", coefficients, &c.definition)
+        }
+        Some(CalibrationForm::Logarithmic { coefficients }) => {
+            coefficient_line("Logarithmic", "LGF_POL", coefficients, &c.definition)
+        }
+        Some(CalibrationForm::Textual { intervals }) => {
+            let mut lines = vec!["Textual intervals".into()];
+            if let Some(intervals) = &intervals.value {
+                lines.extend(intervals.iter().map(|i| {
+                    format!(
+                        "{}..{} -> {} [{}]",
+                        value(&i.low),
+                        value(&i.high),
+                        string(&i.text),
+                        source(&i.definition.source)
+                    )
+                }));
+            } else {
+                lines.push("Intervals: unavailable".into());
+            }
+            lines
+        }
+        None => vec!["Calibration form: unavailable".into()],
     }
 }

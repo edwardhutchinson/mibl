@@ -1,7 +1,9 @@
 //! Private typed rows and shared loading. Table families are added in their owning slices.
 use crate::{LoadError, model::*};
 use std::{io, path::Path};
+mod calibrations;
 mod commands;
+use calibrations::*;
 mod variable;
 use commands::{parse_ccf, parse_cdf, parse_cpc};
 use variable::parse_vpd;
@@ -334,7 +336,19 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
     let ccf = read_table(directory, "ccf.dat", parse_ccf);
     let cdf = read_table(directory, "cdf.dat", parse_cdf);
     let cpc = read_table(directory, "cpc.dat", parse_cpc);
-    if cdf.rows().is_empty()
+    let cap = read_table(directory, "cap.dat", parse_cap);
+    let mcf = read_table(directory, "mcf.dat", parse_mcf);
+    let lgf = read_table(directory, "lgf.dat", parse_lgf);
+    let txf = read_table(directory, "txf.dat", parse_txf);
+    let txp = read_table(directory, "txp.dat", parse_txp);
+    let cur = read_table(directory, "cur.dat", parse_cur);
+    if cur.rows().is_empty()
+        && mcf.rows().is_empty()
+        && txp.rows().is_empty()
+        && txf.rows().is_empty()
+        && lgf.rows().is_empty()
+        && cap.rows().is_empty()
+        && cdf.rows().is_empty()
         && cpc.rows().is_empty()
         && ccf.rows().is_empty()
         && pcf.rows().is_empty()
@@ -356,13 +370,13 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         pic,
         plf,
         vpd,
-        cur: TableLoad::Missing,
+        cur,
         caf,
-        cap: TableLoad::Missing,
-        mcf: TableLoad::Missing,
-        lgf: TableLoad::Missing,
-        txf: TableLoad::Missing,
-        txp: TableLoad::Missing,
+        cap,
+        mcf,
+        lgf,
+        txf,
+        txp,
         ccf,
         cdf,
         cpc,

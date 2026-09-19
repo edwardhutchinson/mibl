@@ -4,6 +4,7 @@ use crate::{
     reader::{Pcf, Records, Row},
 };
 use std::collections::HashMap;
+mod calibrations;
 mod commands;
 mod packets;
 mod pus;
@@ -43,6 +44,7 @@ impl Catalog {
             pus: Default::default(),
             supporting: HashMap::new(),
         };
+        catalog.index_calibrations();
         catalog.index_packets();
         catalog.index_commands();
         catalog.index_pus();
@@ -54,11 +56,17 @@ impl Catalog {
             .map_or(&[], Vec::as_slice)
     }
 
+    fn describe_parameter(&self, row: &Row<Pcf>) -> ParameterDescription {
+        let mut description = base_parameter(row);
+        description.parameter.calibrations = self.calibrations(row);
+        description
+    }
+
     pub(crate) fn parameter(&self, name: &ParameterName) -> Lookup<ParameterDescription> {
         tracing::debug!(parameter = %name.0, matches = self.parameters.get(name).map_or(0, Vec::len), definitions = self.parameters.len(), "exact parameter lookup");
         match self.parameters.get(name).map(Vec::as_slice) {
             Some([row]) => {
-                let mut description = describe_parameter(&self.records.pcf.rows()[row.0]);
+                let mut description = self.describe_parameter(&self.records.pcf.rows()[row.0]);
                 description.occurrences = self.parameter_occurrences(name);
                 Lookup::Found(description)
             }
@@ -110,7 +118,9 @@ fn unsupported<T>(row: &Row<Pcf>, columns: &[usize], explanation: &str) -> Info<
     }
 }
 
-fn describe_parameter(row: &Row<Pcf>) -> ParameterDescription {
+/// Owned summary with no catalog relationships; `Catalog::describe_parameter` adds
+/// the calibrations, and parameter lookup adds the packet occurrences.
+fn base_parameter(row: &Row<Pcf>) -> ParameterDescription {
     let p = &row.cells;
     let source = &row.definition.source;
     let ptc = p.ptc.value.and_then(|n| u16::try_from(n).ok());
@@ -156,11 +166,8 @@ fn describe_parameter(row: &Row<Pcf>) -> ParameterDescription {
                     )
                 },
             },
-            calibrations: unsupported(
-                row,
-                &[9, 11],
-                "Calibration expansion is not implemented yet",
-            ),
+            // Filled in by Catalog::describe_parameter, which owns the calibration joins.
+            calibrations: info(None, source),
         },
         occurrences: unsupported(row, &[], "Packet occurrences are not implemented yet"),
     }

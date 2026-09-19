@@ -311,8 +311,7 @@ fn accepted_normal_overviews_are_compact_and_aligned() {
             "Parameter DEMO_TEMP\nDescription: Demonstration temperature\n",
             "Encoding: unsigned integer, 16 bits, big endian (PTC 3 / PFC 12)\nUnits: K\nSource: pcf.dat:1\n\n",
             "Packets\nSPID   Name     Location       Width    Repeat\n",
-            "42001  DEMO_HK  byte 16 bit 0  16 bits  once\n\nProblems\n",
-            "[P1] Calibration: unsupported interpretation; expansion is not implemented.\n",
+            "42001  DEMO_HK  byte 16 bit 0  16 bits  once\n\nCalibrations\nnone declared\n\nProblems\nnone\n",
             "Use --details for recorded fields and problem evidence.\n"
         )
     );
@@ -324,7 +323,7 @@ fn accepted_normal_overviews_are_compact_and_aligned() {
             "Packet 42001  DEMO_HK\nDescription: Demonstration housekeeping\nSource: pid.dat:1\n\n",
             "Identification\nAPID: 42\nService: type 3, subtype 25\nAdditional criteria: none declared\n\n",
             "Layout\nParameter  Location       Width    Repeat\nDEMO_TEMP  byte 16 bit 0  16 bits  once\n\n",
-            "Problems\n[P1] DEMO_TEMP calibration: unsupported interpretation; expansion is not implemented.\n",
+            "Problems\nnone\n",
             "Use --details for recorded fields and problem evidence.\n"
         )
     );
