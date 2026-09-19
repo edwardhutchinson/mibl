@@ -166,6 +166,173 @@ fn numeric_identity_classes_outrank_packet_names_and_descriptions() {
     );
 }
 
+/// One packet root whose TPCF reference is ambiguous records both names, and both stay
+/// searchable case-insensitively while the displayed name stays unavailable.
+#[test]
+fn every_recorded_tpcf_name_matches_and_the_name_stays_ambiguous() {
+    let dir = Fixture::new();
+    dir.write("pid.dat", "3\t25\t42\t0\t0\t100\tPacket\t\t-1\t10");
+    dir.write("tpcf.dat", "100\tUNIQUE_ALPHA\n100\tUNIQUE_BETA");
+    let mib = Mib::load(dir.path()).unwrap();
+    for (query, scope) in [
+        ("UNIQUE", SearchScope::Packets),
+        ("unique_alpha", SearchScope::Packets),
+        ("UNIQUE_BETA", SearchScope::Packets),
+        ("unique", SearchScope::All),
+        ("UnIqUe_BeTa", SearchScope::All),
+    ] {
+        let candidates = mib.search(query, scope);
+        assert_eq!(candidates.len(), 1, "{query} {scope:?}");
+        let candidate = &candidates[0];
+        assert_eq!(candidate.identity, Identity::Packet(PacketSpid(100)));
+        // No linked definition is chosen to display a hit: the name stays unavailable and
+        // keeps the evidence naming both recorded candidates.
+        assert!(candidate.name.value.is_none(), "{query}");
+        let [
+            Problem {
+                kind:
+                    ProblemKind::AmbiguousReference {
+                        alternatives,
+                        reference,
+                    },
+                ..
+            },
+        ] = candidate.name.problems.as_slice()
+        else {
+            panic!("{query}: {:?}", candidate.name.problems)
+        };
+        assert_eq!(
+            reference,
+            &Reference::Supporting {
+                table: Table::Tpcf,
+                key: "100".into()
+            }
+        );
+        assert_eq!(alternatives.first.definition.source.line.get(), 1);
+        assert_eq!(alternatives.second.definition.source.line.get(), 2);
+        assert!(alternatives.rest.is_empty());
+        // The returned identity is reusable: exact lookup finds the one PID root and keeps
+        // the ambiguous name beside every recorded definition.
+        let Lookup::Found(description) = mib.packet(PacketSpid(100)) else {
+            panic!("{query}: exact packet lookup is no longer Found")
+        };
+        assert!(description.packet.name.value.is_none());
+        assert_eq!(
+            description
+                .packet
+                .characteristics
+                .value
+                .unwrap()
+                .iter()
+                .map(|d| d.source.line.get())
+                .collect::<Vec<_>>(),
+            [1, 2]
+        );
+    }
+    // Folding applies to every retained name, including non-ASCII text.
+    let dir = Fixture::new();
+    dir.write("pid.dat", "3\t25\t42\t0\t0\t100\tPacket\t\t-1\t10");
+    dir.write("tpcf.dat", "100\tÜBER_ALPHA\n100\tÜBER_BETA");
+    let mib = Mib::load(dir.path()).unwrap();
+    assert_eq!(mib.search("über_beta", SearchScope::All).len(), 1);
+    assert_eq!(mib.search("ÜBER", SearchScope::Packets).len(), 1);
+}
+
+/// Several matching names still give one candidate per PID root, and duplicate PID roots
+/// each keep their own candidate.
+#[test]
+fn one_candidate_per_pid_root_however_many_recorded_names_match() {
+    let dir = Fixture::new();
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t100\tPacket A\t\t-1\t10\n3\t25\t42\t0\t0\t200\tPacket B\t\t-1\t10",
+    );
+    dir.write(
+        "tpcf.dat",
+        "100\tALPHA_FIRST\n100\tALPHA_SECOND\n200\tALPHA_THIRD",
+    );
+    let mib = Mib::load(dir.path()).unwrap();
+    let spids = |query| {
+        mib.search(query, SearchScope::Packets)
+            .into_iter()
+            .map(|c| c.identity)
+            .collect::<Vec<_>>()
+    };
+    // Both names of the first root match one query and stay one candidate, ordered by SPID.
+    assert_eq!(
+        spids("ALPHA"),
+        [100, 200].map(|spid| Identity::Packet(PacketSpid(spid)))
+    );
+    assert_eq!(
+        spids("alpha_second"),
+        vec![Identity::Packet(PacketSpid(100))]
+    );
+    assert_eq!(
+        spids("ALPHA_THIRD"),
+        vec![Identity::Packet(PacketSpid(200))]
+    );
+}
+
+/// Duplicate identical TPCF names stay one candidate per PID root, and duplicate PID roots
+/// stay separate candidates in source order.
+#[test]
+fn duplicate_names_and_duplicate_pid_roots_stay_separate_candidates() {
+    let dir = Fixture::new();
+    dir.write("tpcf.dat", "100\tDOUBLE\n100\tDOUBLE\n200\tDOUBLE");
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t100\tPacket A\t\t-1\t10\n3\t25\t42\t0\t0\t100\tPacket A\t\t-1\t10\n3\t25\t42\t0\t0\t200\tPacket B\t\t-1\t10",
+    );
+    let mib = Mib::load(dir.path()).unwrap();
+    let candidates = mib.search("double", SearchScope::Packets);
+    assert_eq!(
+        candidates
+            .iter()
+            .map(|c| c.source.line.get())
+            .collect::<Vec<_>>(),
+        [1, 2, 3]
+    );
+    assert_eq!(
+        candidates
+            .iter()
+            .map(|c| c.identity.clone())
+            .collect::<Vec<_>>(),
+        [100, 100, 200].map(|spid| Identity::Packet(PacketSpid(spid)))
+    );
+    // Only the root recording two TPCF rows has an ambiguous name; the single-row root
+    // still shows its one recorded name.
+    assert_eq!(
+        candidates
+            .iter()
+            .map(|c| c.name.value.as_deref())
+            .collect::<Vec<_>>(),
+        [None, None, Some("DOUBLE")]
+    );
+}
+
+/// Exact SPIDs outrank identity prefixes, which outrank fuzzy recorded names, which
+/// outrank description-only matches.
+#[test]
+fn recorded_names_rank_below_identities_and_above_descriptions() {
+    let dir = Fixture::new();
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t12\tPlain\t\t-1\t10\n3\t25\t42\t0\t0\t120\tPlain\t\t-1\t10\n3\t25\t42\t0\t0\t5\tPlain\t\t-1\t10\n3\t25\t42\t0\t0\t4\t12\t\t-1\t10",
+    );
+    dir.write(
+        "tpcf.dat",
+        "12\tTWE\n120\tTWE_LONG\n5\t12_ALPHA\n5\t12_BETA\n4\tTWE_OTHER",
+    );
+    let mib = Mib::load(dir.path()).unwrap();
+    // SPID 12 matches exactly, 120 by identity prefix, 5 through its recorded names and
+    // 4 only through its description. The description-only root has the lowest SPID, so
+    // its position proves names rank ahead of descriptions rather than numeric order.
+    assert_eq!(
+        identities(&mib, "12", SearchScope::Packets),
+        [12, 120, 5, 4].map(|spid| Identity::Packet(PacketSpid(spid)))
+    );
+}
+
 #[test]
 fn unicode_case_and_literal_search_punctuation_are_supported() {
     let dir = Fixture::new();

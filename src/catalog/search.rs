@@ -53,16 +53,15 @@ impl Catalog {
                     Identity::Command(name) => name.0.clone(),
                 };
                 let folded_identity = identity.to_lowercase();
+                let names = self.searchable_names(&candidate);
+                let texts =
+                    std::iter::once(identity.as_str()).chain(names.iter().map(String::as_str));
                 // Ranking classes are contractual; fuzzy scores within a class are tuning.
                 let rank = if folded_identity == folded_query {
                     (0, std::cmp::Reverse(0))
                 } else if folded_identity.starts_with(&folded_query) {
                     (1, std::cmp::Reverse(0))
-                } else if let Some(best) = score(&identity)
-                    .into_iter()
-                    .chain(candidate.name.value.as_deref().and_then(&mut score))
-                    .max()
-                {
+                } else if let Some(best) = texts.filter_map(&mut score).max() {
                     (2, std::cmp::Reverse(best))
                 } else {
                     (
@@ -89,6 +88,23 @@ impl Catalog {
         matches
             .into_iter()
             .map(|(_, candidate)| candidate)
+            .collect()
+    }
+
+    /// Every recorded name a candidate can be discovered by, in source order with duplicates
+    /// kept: the name it displays, plus every TPCF name retained under a packet root. An
+    /// ambiguous packet name is unavailable to display, so those retained names are what can
+    /// still find the root, and none of them is selected to render a hit.
+    fn searchable_names(&self, candidate: &Candidate) -> Vec<String> {
+        candidate
+            .name
+            .value
+            .iter()
+            .cloned()
+            .chain(match candidate.identity {
+                Identity::Packet(spid) => self.packet_names(spid),
+                _ => vec![],
+            })
             .collect()
     }
 }
