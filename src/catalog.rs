@@ -99,6 +99,125 @@ fn info<T>(value: Option<T>, source: &Source) -> Info<T> {
     }
 }
 
+/// Records every row's declared key under its table, keeping duplicates in source order.
+fn index_rows<T>(
+    index: &mut HashMap<(Table, String), Vec<RowId>>,
+    table: Table,
+    rows: &[Row<T>],
+    key: impl Fn(&T) -> Option<&str>,
+) {
+    for (i, r) in rows.iter().enumerate() {
+        if let Some(key) = key(&r.cells) {
+            index
+                .entry((table, key.to_owned()))
+                .or_default()
+                .push(RowId(i));
+        }
+    }
+}
+
+/// The problem a declared reference reports when nothing resolves it.
+fn missing_problems(reference: Reference, source: &Source) -> Vec<Problem> {
+    missing::<()>(reference, source).problems
+}
+
+/// A problem naming every target when one reference resolves to several definitions.
+fn ambiguity(
+    reference: Reference,
+    source: &Source,
+    targets: Vec<Target>,
+    explanation: &str,
+) -> Option<Problem> {
+    (targets.len() > 1).then(|| Problem {
+        sources: std::iter::once(source.clone())
+            .chain(targets.iter().map(|t| t.definition.source.clone()))
+            .collect(),
+        kind: ProblemKind::AmbiguousReference {
+            reference,
+            alternatives: at_least_two(targets),
+        },
+        explanation: explanation.into(),
+    })
+}
+
+/// One retained supporting row as a typed candidate target.
+fn target<T>(table: Table, key: &str, row: &Row<T>) -> Target {
+    Target {
+        reference: reference(table, key),
+        definition: row.definition.clone(),
+    }
+}
+
+/// A declared count and the value rows it covers disagree; both declarations stay available.
+fn count_disagreement(
+    declared: &str,
+    count: i64,
+    retained: &str,
+    rows: usize,
+    available: Vec<Target>,
+) -> Problem {
+    Problem {
+        sources: available
+            .iter()
+            .map(|t| t.definition.source.clone())
+            .collect(),
+        kind: ProblemKind::InconsistentDefinition {
+            fields: vec![declared.into(), retained.into()],
+            values: vec![Scalar::Integer(count), Scalar::Unsigned(rows as u64)],
+            available,
+        },
+        explanation: format!("{declared} disagrees with the number of retained {retained} rows"),
+    }
+}
+
+/// A supporting table reference under the key its rows declare.
+fn reference(table: Table, key: &str) -> Reference {
+    Reference::Supporting {
+        table,
+        key: key.into(),
+    }
+}
+
+/// Every candidate of an ambiguous reference, in source order.
+fn at_least_two(targets: Vec<Target>) -> AtLeastTwo<Target> {
+    let mut targets = targets.into_iter();
+    AtLeastTwo {
+        first: Box::new(targets.next().expect("ambiguity has a first target")),
+        second: Box::new(targets.next().expect("ambiguity has a second target")),
+        rest: targets.collect(),
+    }
+}
+
+/// Text-valued SCOS cells take their interpretation from the declared format and radix.
+fn number(cell: &Info<String>, format: Option<&str>, radix: Option<&str>) -> Info<Scalar> {
+    let Some(text) = &cell.value else {
+        return info(None, &cell.sources[0]);
+    };
+    let radix = match radix {
+        Some("H") => 16,
+        Some("O") => 8,
+        _ => 10,
+    };
+    let value = match format {
+        Some("U") => u64::from_str_radix(text, radix).ok().map(Scalar::Unsigned),
+        Some("I") => text.parse::<i64>().ok().map(Scalar::Integer),
+        Some("R") => text
+            .parse::<f64>()
+            .ok()
+            .filter(|n| n.is_finite())
+            .map(|_| Scalar::Decimal(text.clone())),
+        _ => None,
+    };
+    if value.is_none() {
+        unavailable(
+            &cell.sources[0],
+            "Recorded number cannot be interpreted with its declared format",
+        )
+    } else {
+        info(value, &cell.sources[0])
+    }
+}
+
 fn unsupported<T>(row: &Row<Pcf>, columns: &[usize], explanation: &str) -> Info<T> {
     let meanings = columns
         .iter()

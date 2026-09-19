@@ -65,7 +65,8 @@ if the source files change or disappear. Results can outlive the snapshot.
 
 The loader reads `pcf.dat`, `pid.dat`, `tpcf.dat`, `pic.dat`, `plf.dat`, `vpd.dat`,
 `cur.dat`, `caf.dat`, `cap.dat`, `mcf.dat`, `lgf.dat`, `txf.dat`, `txp.dat`,
-`ccf.dat`, `cdf.dat` and `cpc.dat`. Supporting tables can form a usable snapshot even without
+`ccf.dat`, `cdf.dat`, `cpc.dat`, `prf.dat`, `prv.dat`, `paf.dat`, `pas.dat`,
+`cca.dat` and `ccs.dat`. Supporting tables can form a usable snapshot even without
 root definitions. The loader accepts omitted optional fields and extra trailing
 columns, and keeps usable rows when neighboring rows or other supported files fail.
 
@@ -96,9 +97,22 @@ calibrations keeps both sets with the disagreement visible. Parameter overviews
 show interpreted calibration values; `--details` adds original fields, defaults,
 sources and reference evidence.
 
-Command calibration expansion, command headers, nested command repetitions and
-supporting argument rules belong to later slices. Unimplemented relationships
-carry unsupported-interpretation problems.
+Command argument rules resolve the CPC range, alias and conversion references.
+Allowed ranges keep each declared boundary with the range set's representation,
+input format and radix, where an omitted upper bound stays unavailable. Alias
+mappings keep the interpreted raw value beside their declared text. Command
+conversions keep their raw and engineering point interpretations from the CCA
+formats, and no interpolation is invented where none is declared. An argument
+that declares no reference reports no rules, a reference without a usable target
+stays a local problem, several matching sets keep every definition with the
+ambiguity attached, and a declared count that disagrees with the retained rows
+stays visible. An unavailable argument layout is never reported as a command
+that declares none. The command view prints an `Argument rules` section with each
+value and its source; `--details` adds the recorded range, alias and conversion
+rows.
+
+Command headers and nested command repetitions belong to later slices.
+Unimplemented relationships carry unsupported-interpretation problems.
 
 The [interface contract](docs/interfaces/contract.md) describes the complete
 accepted interface set. Local references and example mission data stay unpublished.

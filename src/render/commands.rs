@@ -17,6 +17,7 @@ pub(crate) fn command(
     )?;
     view.info(&c.arguments, "Application data");
     writeln!(out, "\nApplication data")?;
+    let mut rules = Vec::new();
     if let Some(layout) = &c.arguments.value {
         let mut rows = vec![vec![
             "Element".into(),
@@ -28,7 +29,7 @@ pub(crate) fn command(
             "CPC default".into(),
             "Element value".into(),
         ]];
-        command_layout(layout, &mut view, &mut rows);
+        command_layout(layout, &mut view, &mut rows, &mut rules);
         if rows.len() == 1 {
             writeln!(out, "No elements declared")?;
         } else {
@@ -37,12 +38,28 @@ pub(crate) fn command(
     } else {
         writeln!(out, "unavailable")?;
     }
+    writeln!(out, "\nArgument rules")?;
+    if c.arguments.value.is_none() {
+        // An unavailable layout is not a command that declares no rules.
+        writeln!(out, "unavailable")?;
+    } else if rules.is_empty() {
+        writeln!(out, "none declared")?;
+    } else {
+        for line in &rules {
+            writeln!(out, "{line}")?;
+        }
+    }
     let ids = view.info(&c.header, "Header");
     writeln!(out, "\nHeader: unavailable{}", markers(&ids))?;
     view.finish(details, out)
 }
 
-fn command_layout(layout: &[Layout<CommandElement>], view: &mut View, rows: &mut Vec<Vec<String>>) {
+fn command_layout(
+    layout: &[Layout<CommandElement>],
+    view: &mut View,
+    rows: &mut Vec<Vec<String>>,
+    rules: &mut Vec<String>,
+) {
     for item in layout {
         match item {
             Layout::Element(CommandElement::Argument(a)) => {
@@ -73,12 +90,11 @@ fn command_layout(layout: &[Layout<CommandElement>], view: &mut View, rows: &mut
                     view,
                     &format!("{context} element value"),
                 );
-                view.info(&a.rules.ranges, &format!("{context} ranges"));
-                view.info(&a.rules.aliases, &format!("{context} aliases"));
-                view.info(&a.rules.calibrations, &format!("{context} calibrations"));
+                // The rule families register their own definitions and problems under this context.
                 for d in &a.rules.supporting_definitions {
-                    view.definition(d, &context);
+                    view.definition(d, &format!("{context} rules"));
                 }
+                argument_rules(a, view, &context, rules);
                 rows.push(vec![
                     name,
                     string(&a.description),
@@ -121,7 +137,7 @@ fn command_layout(layout: &[Layout<CommandElement>], view: &mut View, rows: &mut
             } => {
                 view.definition(definition, "Command repetition");
                 view.repetition(repetition, "Command repetition");
-                command_layout(children, view, rows);
+                command_layout(children, view, rows, rules);
             }
             Layout::Conditional {
                 definition,
@@ -130,10 +146,114 @@ fn command_layout(layout: &[Layout<CommandElement>], view: &mut View, rows: &mut
             } => {
                 view.definition(definition, "Command condition");
                 view.declaration(condition, "Command condition");
-                command_layout(children, view, rows);
+                command_layout(children, view, rows, rules);
             }
         }
     }
+}
+
+/// The declared range, alias and conversion rules of one argument, in nested blocks. An
+/// argument with no declared rules contributes nothing, while an unavailable family keeps
+/// its problem markers and the argument's other information.
+fn argument_rules(a: &CommandArgument, view: &mut View, context: &str, lines: &mut Vec<String>) {
+    let range_ids = view.info(&a.rules.ranges, &format!("{context} ranges"));
+    let alias_ids = view.info(&a.rules.aliases, &format!("{context} aliases"));
+    let calibration_ids = view.info(&a.rules.calibrations, &format!("{context} calibrations"));
+    if declared_empty(a.rules.ranges.value.as_ref())
+        && declared_empty(a.rules.aliases.value.as_ref())
+        && declared_empty(a.rules.calibrations.value.as_ref())
+    {
+        return;
+    }
+    lines.push(context.to_owned());
+    match &a.rules.ranges.value {
+        Some(ranges) if ranges.is_empty() => {}
+        Some(ranges) => {
+            lines.push(format!("  Ranges{}", markers(&range_ids)));
+            for range in ranges {
+                let context = format!("{context} range");
+                view.definition(&range.definition, &context);
+                let mut ids = view.info(&range.low, &context);
+                ids.extend(view.info(&range.high, &context));
+                ids.sort_unstable();
+                ids.dedup();
+                lines.push(format!(
+                    "    {} .. {} [{}] [{}]{}",
+                    scalar_value(&range.low),
+                    scalar_value(&range.high),
+                    string(&range.representation),
+                    source(&range.definition.source),
+                    markers(&ids)
+                ));
+            }
+        }
+        None => {
+            lines.push(format!("  Ranges{}", markers(&range_ids)));
+            lines.push("    unavailable".into());
+        }
+    }
+    match &a.rules.aliases.value {
+        Some(aliases) if aliases.is_empty() => {}
+        Some(aliases) => {
+            lines.push(format!("  Aliases{}", markers(&alias_ids)));
+            for alias in aliases {
+                let context = format!("{context} alias");
+                view.definition(&alias.definition, &context);
+                let ids = view.info(&alias.raw, &context);
+                lines.push(format!(
+                    "    {} -> {} [{}]{}",
+                    scalar_value(&alias.raw),
+                    string(&alias.text),
+                    source(&alias.definition.source),
+                    markers(&ids)
+                ));
+            }
+        }
+        None => {
+            lines.push(format!("  Aliases{}", markers(&alias_ids)));
+            lines.push("    unavailable".into());
+        }
+    }
+    match &a.rules.calibrations.value {
+        Some(alternatives) if alternatives.is_empty() => {}
+        Some(alternatives) => {
+            lines.push(format!("  Calibrations{}", markers(&calibration_ids)));
+            for alternative in alternatives {
+                match &alternative.calibration.value {
+                    Some(calibration) => {
+                        let context = format!("{context} {}", reference(&calibration.reference));
+                        let ids = view.info(&alternative.calibration, &context);
+                        view.calibration(calibration, &context);
+                        lines.push(format!(
+                            "    {} at {}{}",
+                            reference(&calibration.reference),
+                            source(&calibration.definition.source),
+                            markers(&ids)
+                        ));
+                        lines.extend(
+                            calibration_lines(calibration)
+                                .into_iter()
+                                .map(|line| format!("    {line}")),
+                        );
+                    }
+                    None => {
+                        let ids =
+                            view.info(&alternative.calibration, &format!("{context} calibrations"));
+                        lines.push(format!("    unavailable{}", markers(&ids)));
+                    }
+                }
+            }
+        }
+        None => {
+            lines.push(format!("  Calibrations{}", markers(&calibration_ids)));
+            lines.push("    unavailable".into());
+        }
+    }
+}
+
+/// A family that is declared without entries says none, which needs no block of its own.
+fn declared_empty<T>(value: Option<&Vec<T>>) -> bool {
+    value.is_some_and(Vec::is_empty)
 }
 
 fn argument_value(i: &Info<ArgumentValue>, view: &mut View, context: &str) -> String {
