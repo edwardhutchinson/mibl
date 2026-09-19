@@ -704,3 +704,37 @@ its own command, parameter and packet identities renders in both output modes
 without a panic or unexpected error: 528 checked runs. This verification uses
 synthetic data and a sample MIB, so it does not claim exhaustive ICD
 conformance. No supplied reference file or example MIB row was published.
+
+## Issue #29 occurrence availability
+
+The public types already distinguish an unknown collection from an empty one:
+`ParameterDescription.occurrences.value` is `None` when the occurrence sources
+cannot establish a result, and `Some` with no element only when the declared
+occurrences are known to be none. `Catalog::parameter_occurrences` now applies
+that distinction instead of asserting a known empty result for every found root.
+An absent occurrence list stays `None` unless a readable PLF table accounts for
+the fixed occurrences and every declared variable packet structure has VPD data.
+A declared structure has no VPD data when the table is missing or unreadable, or
+when it is readable with no retained row under the declared `PID_TPSD` key. The
+declared variable packet structure is what triggers this check, so a snapshot
+without `vpd.dat` still reports a known empty result when no PID root declares a
+variable layout.
+
+Independently known occurrences are unaffected. A fixed occurrence from PLF, or a
+variable occurrence from VPD, keeps its containing packet beside the
+missing-reference problem for whichever source is unavailable, and every declared
+`PID_TPSD` key without VPD rows reports one missing `VPD` reference under that
+key. Exact parameter lookup stays `Found` with status 0 whenever the root
+definition is usable. The renderer is unchanged: `none` remains the presentation
+of a present empty value and `unavailable` that of an absent one.
+
+Cross-check: the catalog consults only its own `TableLoad` states and existing
+supporting indexes, so no new reader column or public type is needed. Public
+library tests cover a missing PLF table, an unreadable PLF table, a readable empty
+PLF table, a fixed occurrence from a readable PLF row, a declared variable
+structure with missing, empty or unrelated VPD rows, a known empty result from a
+readable VPD table, a variable occurrence from a matching VPD row, one reference
+for two PID roots sharing a TPSD, a variable occurrence kept beside a missing PLF
+table, and a fixed occurrence kept beside an unavailable variable structure. CLI
+tests cover `none` against `unavailable` for the `Packets` section in both output
+modes with the missing-reference problem retained beside a usable definition.

@@ -455,6 +455,12 @@ impl Catalog {
             );
         }
         self.add_variable_occurrences(name, &mut result);
+        if result.value.as_ref().is_some_and(Vec::is_empty) && !self.occurrence_sources_are_known()
+        {
+            // An occurrence source cannot account for every declared occurrence, so an absent
+            // occurrence stays unavailable rather than asserting a known empty result.
+            result.value = None;
+        }
         result
     }
 }

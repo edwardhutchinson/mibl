@@ -241,3 +241,230 @@ fn encoded_width_uses_type_and_format_including_time_formats() {
         );
     }
 }
+
+fn missing_table(problems: &[Problem], table: Table, key: &str) -> bool {
+    problems.iter().any(|p| {
+        matches!(
+            &p.kind,
+            ProblemKind::MissingReference {
+                reference: Reference::Supporting {
+                    table: found,
+                    key: found_key,
+                }
+            } if *found == table && found_key == key
+        )
+    })
+}
+
+#[test]
+fn occurrence_availability_distinguishes_missing_unreadable_and_readable_plf_sources() {
+    // No PLF table can name the parameter, so the collection stays unavailable rather than
+    // asserting a known empty, and the root definition remains usable and Found.
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("a usable root definition stays Found")
+    };
+    assert!(found.occurrences.value.is_none());
+    assert!(missing_table(
+        &found.occurrences.problems,
+        Table::Plf,
+        "TEMP"
+    ));
+    assert_eq!(found.parameter.units.value.as_deref(), Some("K"));
+    assert_eq!(found.parameter.definition.fields.len(), 24);
+
+    // A readable PLF table without a matching row is a known empty result.
+    dir.write("plf.dat", "");
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    assert!(found.occurrences.value.as_ref().is_some_and(Vec::is_empty));
+    assert!(found.occurrences.problems.is_empty());
+
+    // An unreadable PLF table is unavailable, not a known empty result.
+    std::fs::remove_file(dir.path().join("plf.dat")).unwrap();
+    std::fs::create_dir(dir.path().join("plf.dat")).unwrap();
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    assert!(found.occurrences.value.is_none());
+    assert!(missing_table(
+        &found.occurrences.problems,
+        Table::Plf,
+        "TEMP"
+    ));
+
+    // A readable PLF row keeps the fixed occurrence and needs no problem.
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t89000\tDemonstration housekeeping\t\t-1\t10",
+    );
+    dir.write("tpcf.dat", "89000\tDEMO_HK");
+    dir.write("plf.dat", "TEMP\t89000\t16\t0");
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    let packets = found.occurrences.value.as_ref().unwrap();
+    assert_eq!(packets.len(), 1);
+    assert_eq!(
+        packets[0]
+            .packet
+            .value
+            .as_ref()
+            .unwrap()
+            .name
+            .value
+            .as_deref(),
+        Some("DEMO_HK")
+    );
+    assert_eq!(packets[0].occurrences.len(), 1);
+    assert!(found.occurrences.problems.is_empty());
+}
+
+#[test]
+fn occurrence_availability_follows_declared_variable_packet_structures() {
+    // A declared variable structure whose VPD data is unavailable keeps the collection
+    // unavailable, whether the table is missing, empty, or simply lacks a row for that TPSD.
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    dir.write("plf.dat", "");
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t89001\tDemonstration variable packet\t\t7\t10",
+    );
+    for vpd in [None, Some(""), Some("8\t1\tOTHER\t\t\t\t\t\t8")] {
+        if let Some(vpd) = vpd {
+            dir.write("vpd.dat", vpd);
+        }
+        let Lookup::Found(found) = Mib::load(dir.path())
+            .unwrap()
+            .parameter(&ParameterName("TEMP".into()))
+        else {
+            panic!("expected parameter")
+        };
+        assert!(found.occurrences.value.is_none(), "vpd {vpd:?}");
+        assert!(missing_table(&found.occurrences.problems, Table::Vpd, "7"));
+    }
+
+    // A readable VPD row for the declared TPSD that does not name the parameter is a known empty.
+    dir.write("vpd.dat", "7\t1\tOTHER\t\t\t\t\t\t8");
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    assert!(found.occurrences.value.as_ref().is_some_and(Vec::is_empty));
+    assert!(found.occurrences.problems.is_empty());
+
+    // A readable VPD row naming the parameter resolves the declared structure and keeps the
+    // variable occurrence in its containing packet.
+    dir.write("vpd.dat", "7\t1\tTEMP\t\t\t\t\t\t8");
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    let packets = found.occurrences.value.as_ref().unwrap();
+    assert_eq!(packets.len(), 1);
+    assert_eq!(
+        packets[0].packet.value.as_ref().unwrap().spid,
+        PacketSpid(89001)
+    );
+    assert_eq!(packets[0].occurrences.len(), 1);
+    assert!(found.occurrences.problems.is_empty());
+
+    // Two PID roots sharing one TPSD describe one structure, so they report one reference.
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t89001\tFirst variable packet\t\t7\t10\n3\t26\t42\t0\t0\t89002\tSecond variable packet\t\t7\t10",
+    );
+    std::fs::remove_file(dir.path().join("vpd.dat")).unwrap();
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    assert!(found.occurrences.value.is_none());
+    assert_eq!(
+        found
+            .occurrences
+            .problems
+            .iter()
+            .filter(|p| matches!(
+                p.kind,
+                ProblemKind::MissingReference {
+                    reference: Reference::Supporting {
+                        table: Table::Vpd,
+                        ..
+                    }
+                }
+            ))
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn known_occurrences_survive_beside_unavailable_sources() {
+    // A variable occurrence stays visible beside a missing PLF table.
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t89001\tDemonstration variable packet\t\t7\t10",
+    );
+    dir.write("vpd.dat", "7\t1\tTEMP\t\t\t\t\t\t8");
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    let packets = found.occurrences.value.as_ref().unwrap();
+    assert_eq!(packets.len(), 1);
+    assert_eq!(packets[0].occurrences.len(), 1);
+    assert!(missing_table(
+        &found.occurrences.problems,
+        Table::Plf,
+        "TEMP"
+    ));
+
+    // A fixed occurrence stays visible beside an unavailable variable structure.
+    dir.write(
+        "pid.dat",
+        "3\t25\t42\t0\t0\t89000\tDemonstration housekeeping\t\t-1\t10\n3\t26\t42\t0\t0\t89001\tDemonstration variable packet\t\t7\t10",
+    );
+    dir.write("plf.dat", "TEMP\t89000\t16\t0");
+    std::fs::remove_file(dir.path().join("vpd.dat")).unwrap();
+    let Lookup::Found(found) = Mib::load(dir.path())
+        .unwrap()
+        .parameter(&ParameterName("TEMP".into()))
+    else {
+        panic!("expected parameter")
+    };
+    let packets = found.occurrences.value.as_ref().unwrap();
+    assert_eq!(packets.len(), 1);
+    assert_eq!(
+        packets[0].packet.value.as_ref().unwrap().spid,
+        PacketSpid(89000)
+    );
+    assert!(missing_table(&found.occurrences.problems, Table::Vpd, "7"));
+}
