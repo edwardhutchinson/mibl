@@ -711,6 +711,128 @@ fn command_misses_are_silent_duplicates_are_candidates_and_debug_explains_loadin
 }
 
 #[test]
+fn command_groups_render_nested_blocks_beside_declared_repetition_sources() {
+    let dir = Fixture::new();
+    dir.write("ccf.dat", "DEMO_TC\tTC(14,1)\t\t\t\tHEADER");
+    dir.write(
+        "cdf.dat",
+        "DEMO_TC\tF\tN1\t8\t0\t3\tN1\tR\t1\nDEMO_TC\tE\tAPID\t8\t8\t\tAPID\tR\nDEMO_TC\tF\tN2\t8\t16\t1\tN2\tR\t1\nDEMO_TC\tE\tType\t8\t24\t\tTYPE\tR",
+    );
+    dir.write(
+        "cpc.dat",
+        "N1\tGroup count\t3\t4\nAPID\tApplication id\t3\t4\nN2\tType count\t3\t4\nTYPE\tType\t3\t4",
+    );
+    for prefix in [vec![], vec!["--details"]] {
+        let mut args = prefix.clone();
+        args.extend(["command", "DEMO_TC"]);
+        let output = run(&dir, &args);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(output.stderr.is_empty());
+        let text = String::from_utf8(output.stdout).unwrap();
+        for expected in [
+            "Application data",
+            "Repeat group",
+            "End repeat",
+            "runtime CDF_GRPSIZE=3 repeats the following 3 declared element(s) using the recorded value 1 of N1",
+            "runtime CDF_GRPSIZE=1 repeats the following 1 declared element(s) using the recorded value 1 of N2",
+            "cdf.dat:1",
+            "application-declared bit 8",
+            "runtime dependent",
+        ] {
+            assert!(text.contains(expected), "missing {expected}: {text}");
+        }
+        // Group membership stays visible by nesting, and a nested layout is not a flat table.
+        assert!(
+            text.lines().any(|line| line.starts_with("Repeat group")),
+            "{text}"
+        );
+        assert!(
+            text.lines().any(|line| line.starts_with("  APID")),
+            "{text}"
+        );
+        assert!(
+            text.lines().any(|line| line.starts_with("  Repeat group")),
+            "{text}"
+        );
+        assert!(
+            text.lines().any(|line| line.starts_with("    TYPE")),
+            "{text}"
+        );
+        assert!(
+            text.lines().any(|line| line.starts_with("  End repeat")),
+            "{text}"
+        );
+        assert!(!text.contains("Element value"), "{text}");
+        if prefix.is_empty() {
+            assert!(!text.contains("Declared CDF_BIT"), "{text}");
+            assert!(text.contains("Use --details"), "{text}");
+        } else {
+            assert!(
+                text.contains(
+                    "Declared CDF_BIT is the unexpanded application-data position and shifts with the 3 declared element(s) this group repeats"
+                ),
+                "{text}"
+            );
+            assert!(text.contains("Recorded: text \"3\""), "{text}");
+        }
+    }
+    // A command without declared groups keeps the aligned table.
+    dir.write("cdf.dat", "DEMO_TC\tF\tARG\t8\t0\t0\tN1\tR\t1");
+    let text = String::from_utf8(run(&dir, &["command", "DEMO_TC"]).stdout).unwrap();
+    assert!(
+        text.contains("Element value") && !text.contains("Repeat group"),
+        "{text}"
+    );
+}
+
+#[test]
+fn command_group_problems_and_fixed_areas_render_beside_usable_elements() {
+    let dir = Fixture::new();
+    dir.write("ccf.dat", "DEMO_TC\tDemonstration command\t\t\t\tHEADER");
+    // The repeater is a fixed area, so its group declares no count source and outlives its members.
+    dir.write(
+        "cdf.dat",
+        "DEMO_TC\tA\tPadding\t4\t0\t3\t\t\tF\nDEMO_TC\tE\t\t8\t4\t0\tARG\tR\nDEMO_TC\tA\tTrailer\t4\t12\t0\t\t\t2",
+    );
+    dir.write("cpc.dat", "ARG\tArgument\t3\t4");
+    let output = run(&dir, &["command", "DEMO_TC"]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    for expected in [
+        "Repeat group",
+        "End repeat",
+        "inconsistent definition",
+        "cannot supply a repetition count",
+        "more elements than its group retains",
+        "cdf.dat:1",
+        "application-declared bit 4",
+    ] {
+        assert!(text.contains(expected), "missing {expected}: {text}");
+    }
+    // A group with a contradictory declaration reports no usable repetition.
+    assert!(
+        text.lines()
+            .any(|line| line.starts_with("Repeat group") && line.contains("unavailable")),
+        "{text}"
+    );
+    // Fixed areas and arguments stay usable inside the incomplete group.
+    assert!(text.lines().any(|line| line.starts_with("  ARG")), "{text}");
+    assert!(
+        text.lines().any(|line| line.starts_with("  Fixed area")),
+        "{text}"
+    );
+}
+
+#[test]
 fn help_and_version_work_without_a_mib_directory() {
     for args in [
         vec!["--help"],

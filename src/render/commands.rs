@@ -29,9 +29,14 @@ pub(crate) fn command(
             "CPC default".into(),
             "Element value".into(),
         ]];
-        command_layout(layout, &mut view, &mut rows, &mut rules);
+        command_layout(layout, &mut view, &mut rows, &mut rules, 0);
         if rows.len() == 1 {
             writeln!(out, "No elements declared")?;
+        } else if nested(layout) {
+            // Declared groups print as two-space nested blocks so group membership stays visible.
+            for row in rows.iter().skip(1) {
+                writeln!(out, "{}", row.join("  "))?;
+            }
         } else {
             table(&rows, out)?;
         }
@@ -54,11 +59,19 @@ pub(crate) fn command(
     view.finish(details, out)
 }
 
+/// Declared repetition and condition structures print as nested blocks, not as one flat table.
+fn nested(layout: &[Layout<CommandElement>]) -> bool {
+    layout
+        .iter()
+        .any(|node| !matches!(node, Layout::Element(_)))
+}
+
 fn command_layout(
     layout: &[Layout<CommandElement>],
     view: &mut View,
     rows: &mut Vec<Vec<String>>,
     rules: &mut Vec<String>,
+    depth: usize,
 ) {
     for item in layout {
         match item {
@@ -96,7 +109,7 @@ fn command_layout(
                 }
                 argument_rules(a, view, &context, rules);
                 rows.push(vec![
-                    name,
+                    format!("{}{name}", indent(depth)),
                     string(&a.description),
                     format!("{}{}", position(&a.location.position), markers(&ids)),
                     width(&a.location.encoded_bits),
@@ -120,7 +133,7 @@ fn command_layout(
                     .map(scalar)
                     .unwrap_or_else(|| "unavailable".into());
                 rows.push(vec![
-                    "Fixed area".into(),
+                    format!("{}Fixed area", indent(depth)),
                     description,
                     format!("{}{}", position(&f.location.position), markers(&ids)),
                     width(&f.location.encoded_bits),
@@ -137,7 +150,14 @@ fn command_layout(
             } => {
                 view.definition(definition, "Command repetition");
                 view.repetition(repetition, "Command repetition");
-                command_layout(children, view, rows, rules);
+                let ids = view.info(repetition, "Command repetition");
+                rows.push(vec![
+                    format!("{}Repeat group", indent(depth)),
+                    source(&definition.source),
+                    format!("{}{}", repetition_label(repetition), markers(&ids)),
+                ]);
+                command_layout(children, view, rows, rules, depth + 1);
+                rows.push(vec![format!("{}End repeat", indent(depth))]);
             }
             Layout::Conditional {
                 definition,
@@ -146,9 +166,31 @@ fn command_layout(
             } => {
                 view.definition(definition, "Command condition");
                 view.declaration(condition, "Command condition");
-                command_layout(children, view, rows, rules);
+                rows.push(vec![
+                    format!("{}Conditional structure", indent(depth)),
+                    source(&definition.source),
+                    text(&condition.expression),
+                ]);
+                command_layout(children, view, rows, rules, depth + 1);
             }
         }
+    }
+}
+
+/// Declared groups nest by two spaces per level, matching the packet layout convention.
+fn indent(depth: usize) -> String {
+    "  ".repeat(depth)
+}
+
+fn repetition_label(repetition: &Info<Repetition>) -> String {
+    match &repetition.value {
+        Some(Repetition::Fixed { count, stride_bits }) => {
+            format!("fixed count {count}, stride {}", width(stride_bits))
+        }
+        Some(Repetition::Runtime(declaration)) => {
+            format!("runtime {}", text(&declaration.expression))
+        }
+        None => "unavailable".into(),
     }
 }
 

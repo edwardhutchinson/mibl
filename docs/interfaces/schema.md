@@ -64,6 +64,8 @@ This inventory describes schema facts used by the declarations, not a republishe
 
 `CDF_CNAME` (required); `CDF_ELTYPE` (required); `CDF_DESCR` (optional); `CDF_ELLEN` (required); `CDF_BIT` (required); `CDF_GRPSIZE` (optional, default `0`); `CDF_PNAME` (optional); `CDF_INTER` (optional, default `R`); `CDF_VALUE` (optional); `CDF_TMID` (optional).
 
+`CDF_ELTYPE` declares `A` for a fixed area, `F` for a non-editable parameter and `E` for an editable parameter; only `A` carries `CDF_DESCR`, and `CDF_PNAME` is null for `A`. `CDF_ELLEN` is a fixed area's width in bits and a consistency declaration for parameters, whose width comes from CPC PTC/PFC. `CDF_GRPSIZE` declares how many following elements belong to the group its element repeats; the schema declares a two-digit count of 1 to 99, or 0 when the element is not a repeater. `CDF_BIT` is the offset within the unexpanded application data, so it assumes one repetition of every group.
+
 ## CPC
 
 `CPC_NAME` (required); `CPC_DESCR` (optional); `CPC_PTC` (required); `CPC_PFC` (required); `CPC_DISPFMT` (optional, default `R`); `CPC_RADIX` (optional, default `D`); `CPC_UNIT` (optional); `CPC_CATEG` (optional, default `N`); `CPC_PRFREF` (optional); `CPC_CCAREF` (optional); `CPC_PAFREF` (optional); `CPC_INTER` (optional, default `R`); `CPC_DEFVAL` (optional); `CPC_CORR` (optional, default `Y`); `CPC_OBTIP` (optional, default `0`); `CPC_DESCR2` (optional, default ``); `CPC_ENDIAN` (optional, default `B`).
