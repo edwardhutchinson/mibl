@@ -640,3 +640,67 @@ the nominal, test and no-header declarations with their recorded content.
 
 This supersedes the #13 note that header expansion remains outside that slice, and
 the #19 placeholder header problem, which no longer appears in command views.
+
+## Issue #18 combined workflow verification
+
+Issue #18 requested no new public behaviour. It adds `tests/workflows.rs`, one
+publishable synthetic snapshot carrying all twenty-five canonical table families
+at once, as the environment where calibration, packet structures, command rules,
+search and incomplete-data behaviour meet. It reproduces no supplied reference
+row; `DEMO_MODE` in packet `89000` at byte 19 bit 0 with a non-status category
+beside a textual key stands in for `ZUT00002`, `DEMO_TC001` for `S2KTC001`,
+`DEMO_TC074` for `S2KTC074` and `DEMO_TC003` covers the CDF_ELLEN/CPC width
+disagreement.
+
+Public-library scenarios cover: a parameter carrying a fixed PLF occurrence, a
+variable VPD occurrence inside a runtime group and a conditional calibration
+alternative beside its direct `PCF_CURTX` declaration; the surveyed
+category/reference disagreement keeping its TXF definition, intervals and
+provenance; a duplicated TXF key keeping both candidate targets while its
+intervals stay usable; a key resolving nowhere naming every table of the
+declared family; a fixed packet combining identification criteria, a bounded
+two-place repetition and embedded parameter summaries with calibrations; a
+variable packet keeping declared groups, runtime dependencies and recorded-only
+dependency targets; a command combining declared argument positions, ranges,
+aliases, conversions, a telemetry value source, a missing range table, nested
+repeat groups, a fixed area and separate expanded header fields; the
+CDF_ELLEN/CPC width disagreement staying local to the affected argument;
+duplicate packet, command and parameter roots staying separate and in source
+order; partial snapshots keeping usable information beside missing tables; a
+supporting-only snapshot answering both absence reasons; snapshot independence
+when sources change or disappear; owned results outliving the snapshot with
+relative one-based provenance; and deterministic ordering across independent
+loads and separate processes.
+
+CLI process scenarios cover every lookup kind against the same snapshot, the
+`mode` candidate table and its scope, PUS coordinates, `--details` reaching a
+definition from each of the twenty-five table files, the silent status-1 exact
+miss outside debug mode for both absence reasons and all three kinds, and
+`--debug` reporting dropped rows, ignored extra columns, skipped files and the
+query decisions without changing stdout.
+
+One integration gap was resolved: the packet lookup emitted its query event but
+not the absence reason its parameter and command siblings report, so a missing
+packet could not be told from an unloaded one under `--debug`. The catalog now
+emits the same `packet not found` event. No contract statement changed; this only
+completes the existing debug-event requirement.
+
+Two behaviours are recorded rather than changed, because the contract does not
+prescribe the first and the second is its documented consequence. Duplicate
+fixed PLF roots for one SPID keep a single occurrence entry whose packet summary
+stays unavailable and whose ambiguity problem retains both candidate roots, at
+the declared location, while duplicate variable roots produce separate entries;
+the generic "sorted by numeric SPID, then source for duplicate packet
+definitions" sentence and the #11 variable-only statement can be read as
+disagreeing, and the observable locations differ only in the variable case.
+Missing tables and unreadable tables both reach public results as missing
+references, distinguished only by the debug `skipped file` reason.
+
+Full `cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings`,
+`cargo fmt --check` and the complete `cargo test --all-targets` suite pass, 132
+tests including these nine. The unpublished sample MIB resolves `ZUT00002`,
+packet `89000`, `S2KTC001`, `S2KTC074` and the `mode` search, and every one of
+its own command, parameter and packet identities renders in both output modes
+without a panic or unexpected error: 528 checked runs. This verification uses
+synthetic data and a sample MIB, so it does not claim exhaustive ICD
+conformance. No supplied reference file or example MIB row was published.

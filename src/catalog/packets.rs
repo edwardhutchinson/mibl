@@ -123,11 +123,15 @@ impl Catalog {
                     .map(|id| self.packet_candidate(&self.records.pid.rows()[id.0]))
                     .collect(),
             }),
-            _ => Lookup::NotFound(if self.packets.is_empty() {
-                NotFoundReason::DefinitionsUnavailable
-            } else {
-                NotFoundReason::NoMatchingIdentity
-            }),
+            _ => {
+                let reason = if self.packets.is_empty() {
+                    NotFoundReason::DefinitionsUnavailable
+                } else {
+                    NotFoundReason::NoMatchingIdentity
+                };
+                tracing::debug!(?reason, "packet not found");
+                Lookup::NotFound(reason)
+            }
         }
     }
 
