@@ -855,3 +855,52 @@ against `Table` and the fixture's load states, `--details` and `--debug` leaving
 stdout unchanged, and the two `MIB_DIR` errors. The unpublished sample MIB lists
 all 25 tables with its retained row counts, including `vpd.dat` read with no usable
 row. Every fixture is synthetic; no supplied reference row was published.
+
+## Issue #41 workflow fixture and scenario separation
+
+Issue #41 requested no new public behaviour. The #18 verification had grown into
+one 1,723-line file holding the combined synthetic snapshot, every inspection
+helper and nine scenarios at once, which made a single scenario hard to find and
+read. The acceptance scenarios are now the same assertions in files that name the
+area they cover.
+
+`tests/workflows.rs` is the suite's integration-test entry point: it keeps the
+#18 description of the combined snapshot and declares the child modules. Because
+an integration-test crate root resolves a child module beside itself, the files
+under `tests/workflows/` are reached with explicit `#[path]` attributes, and the
+`workflows` test target is unchanged.
+
+- `workflows/fixture.rs` defines the snapshot once. It holds every synthetic
+  table constant, `TABLES` with all twenty-five canonical families in load order,
+  `write_snapshot()` and `combined()`, and it still builds its directory from the
+  `tests/common/mod.rs` `Fixture`. `TABLES` names the files and the contents a
+  load reads, so the bytes, the order and the number of files in the fixture
+  cannot drift between scenarios. The constants a scenario reads directly
+  (`PCF`, `CAF`, `CAP`, `VPD`, `PCPC`, `PRV`, `TABLES`) and `combined()` carry
+  only `pub(crate)`; the rest stay private to the file.
+- `workflows/support.rs` holds the helpers more than one scenario needs: loading
+  the combined fixture, extracting a found description, naming provenance,
+  declared positions and repetitions, collecting declared arguments, and
+  digesting every query kind. A helper used by one scenario stays in that
+  scenario's file.
+- `workflows/parameters.rs`, `workflows/packets.rs`, `workflows/commands.rs`,
+  `workflows/snapshots.rs` and `workflows/cli.rs` hold the scenarios issue #18
+  verified.
+
+The parameter, packet and command scenarios are additionally split along the
+assertion sections they already carried, one assertion section per named test,
+and each of those tests loads the combined snapshot itself. The snapshot and CLI
+scenarios stay whole: their later assertions depend on the mutations their
+earlier ones make. No assertion, fixture byte, expected value, lookup result or
+provenance line changed, and the moves needed only `pub(crate)` on the shared
+helpers and on the constants a scenario reads directly.
+
+Cross-check: the moved bodies are unmodified slices of the previous file, so every
+previous assertion still runs against the same fixture. `cargo test --all-targets`
+passes on both sides of the change: 149 tests before, 164 after, the difference
+being the fifteen tests the parameter, packet and command scenarios were split
+into. `cargo check --examples`, `cargo clippy --all-targets -- -D warnings` and
+`cargo fmt --all -- --check` are clean, and the baseline had no failing test or
+formatting difference to report separately. The refactor changes no rendering,
+exit status, ownership or ordering, so the sample-MIB comparisons recorded above
+still stand. Every fixture is synthetic; no supplied reference row was published.
