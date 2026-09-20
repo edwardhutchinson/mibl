@@ -41,11 +41,41 @@ Dropped rows are ordinary tracing events, not retained diagnostic records.
 
 ## Reader → catalog table exchanges
 
-All table-specific cell declarations are in `src/reader.rs`; column order,
-optionality and default evidence are in [schema.md](schema.md). `Row<T>` owns
-`Definition` and typed `Info` cells. No table returns a borrowed buffer. The
-catalog never reparses a raw row to discover relationships. Text-valued numeric
-calibration data requires format/radix interpretation in the catalog.
+Each table's typed cells, column schema and parser are colocated in the reader
+module that owns its family: `reader/fields.rs` holds the cell declarations and
+the recorded-field reading they share, `reader/parameters.rs`, `reader/packets.rs`,
+`reader/variable.rs`, `reader/calibrations.rs`, `reader/commands.rs` with
+`reader/commands/rules.rs`, and `reader/header.rs` hold their rows, schemas and
+parsers. `src/reader.rs` describes snapshot loading and keeps only the shared
+`Row<T>`, `TableLoad<T>` and `Records` types, the load and the typed row names it
+re-exports to the catalog. Column order, optionality and default evidence are in
+[schema.md](schema.md). `Row<T>` owns `Definition` and typed `Info` cells. No
+table returns a borrowed buffer. The catalog never reparses a raw row to discover
+relationships. Text-valued numeric calibration data requires format/radix
+interpretation in the catalog.
+
+Parameter interpretation, numeric interpretation and reference resolution have
+their own homes beside the tables they serve: `catalog/parameters.rs` holds the
+retained PCF index, parameter lookup and description, and the width consensus its
+candidate definitions share; `catalog/encoding.rs` interprets the static encoded
+width a PTC/PFC declaration establishes, the number a text-valued SCOS cell
+records and its unsigned conversion; `catalog/resolution.rs` builds an `Info`
+result with the missing, ambiguous, unsupported and inconsistent problems a
+declared reference reports and names the retained rows those problems offer as
+targets; and `src/catalog.rs` keeps catalog ownership, construction and index
+access. Sibling modules import these helpers explicitly and every module stays
+private, so no new public path exists.
+
+Command resolution groups its responsibilities under `catalog/commands`:
+`src/catalog/commands.rs` holds the root and supporting indexes, lookup and
+candidate construction plus the one helper its children share;
+`commands/layout.rs` builds the recursive CDF element and group tree with its
+declared positions and repetition dependencies; `commands/arguments.rs` builds
+each element's encoding, position and supplied value; `commands/rules.rs`
+resolves the PRF/PRV, PAF/PAS and CCA/CCS argument rules; and `commands/header.rs`
+expands the TCP/PCDF packet header. Each module implements `Catalog` and names
+its dependencies explicitly; the child modules are private, so no new public path
+exists.
 
 | Producer tables | Keys and joins consumed by catalog | Public output |
 |---|---|---|
@@ -848,3 +878,52 @@ against `Table` and the fixture's load states, `--details` and `--debug` leaving
 stdout unchanged, and the two `MIB_DIR` errors. The unpublished sample MIB lists
 all 25 tables with its retained row counts, including `vpd.dat` read with no usable
 row. Every fixture is synthetic; no supplied reference row was published.
+
+## Issue #41 workflow fixture and scenario separation
+
+Issue #41 requested no new public behaviour. The #18 verification had grown into
+one 1,723-line file holding the combined synthetic snapshot, every inspection
+helper and nine scenarios at once, which made a single scenario hard to find and
+read. The acceptance scenarios are now the same assertions in files that name the
+area they cover.
+
+`tests/workflows.rs` is the suite's integration-test entry point: it keeps the
+#18 description of the combined snapshot and declares the child modules. Because
+an integration-test crate root resolves a child module beside itself, the files
+under `tests/workflows/` are reached with explicit `#[path]` attributes, and the
+`workflows` test target is unchanged.
+
+- `workflows/fixture.rs` defines the snapshot once. It holds every synthetic
+  table constant, `TABLES` with all twenty-five canonical families in load order,
+  `write_snapshot()` and `combined()`, and it still builds its directory from the
+  `tests/common/mod.rs` `Fixture`. `TABLES` names the files and the contents a
+  load reads, so the bytes, the order and the number of files in the fixture
+  cannot drift between scenarios. The constants a scenario reads directly
+  (`PCF`, `CAF`, `CAP`, `VPD`, `PCPC`, `PRV`, `TABLES`) and `combined()` carry
+  only `pub(crate)`; the rest stay private to the file.
+- `workflows/support.rs` holds the helpers more than one scenario needs: loading
+  the combined fixture, extracting a found description, naming provenance,
+  declared positions and repetitions, collecting declared arguments, and
+  digesting every query kind. A helper used by one scenario stays in that
+  scenario's file.
+- `workflows/parameters.rs`, `workflows/packets.rs`, `workflows/commands.rs`,
+  `workflows/snapshots.rs` and `workflows/cli.rs` hold the scenarios issue #18
+  verified.
+
+The parameter, packet and command scenarios are additionally split along the
+assertion sections they already carried, one assertion section per named test,
+and each of those tests loads the combined snapshot itself. The snapshot and CLI
+scenarios stay whole: their later assertions depend on the mutations their
+earlier ones make. No assertion, fixture byte, expected value, lookup result or
+provenance line changed, and the moves needed only `pub(crate)` on the shared
+helpers and on the constants a scenario reads directly.
+
+Cross-check: the moved bodies are unmodified slices of the previous file, so every
+previous assertion still runs against the same fixture. `cargo test --all-targets`
+passes on both sides of the change: 149 tests before, 164 after, the difference
+being the fifteen tests the parameter, packet and command scenarios were split
+into. `cargo check --examples`, `cargo clippy --all-targets -- -D warnings` and
+`cargo fmt --all -- --check` are clean, and the baseline had no failing test or
+formatting difference to report separately. The refactor changes no rendering,
+exit status, ownership or ordering, so the sample-MIB comparisons recorded above
+still stand. Every fixture is synthetic; no supplied reference row was published.

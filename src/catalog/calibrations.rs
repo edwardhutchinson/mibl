@@ -1,4 +1,7 @@
+use super::encoding::number;
+use super::resolution::{ambiguity, info, missing, reference, resolve};
 use super::*;
+use crate::reader::Pcf;
 
 /// The calibration namespace PCF_CATEG declares for its PCF_CURTX or CUR_SELECT reference.
 /// Status parameters name textual TXF definitions; every other category names the numerical
