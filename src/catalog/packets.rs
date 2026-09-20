@@ -1,3 +1,6 @@
+use super::encoding::unsigned;
+use super::parameters::{candidate_widths, consensus_width};
+use super::resolution::{info, missing, resolve, unavailable};
 use super::*;
 use crate::reader::{Pid, Plf, Tpcf};
 

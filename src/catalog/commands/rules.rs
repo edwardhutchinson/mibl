@@ -1,9 +1,10 @@
 //! The argument rules a CPC reference resolves: PRF/PRV ranges, PAF/PAS aliases
 //! and CCA/CCS conversions.
 
-use super::super::{
-    Catalog, ambiguity, count_disagreement, info, missing, missing_problems, number, reference,
-    target,
+use super::super::Catalog;
+use super::super::encoding::number;
+use super::super::resolution::{
+    ambiguity, count_disagreement, info, missing, missing_problems, reference, target,
 };
 use crate::model::{
     Alias, AllowedRange, Calibration, CalibrationAlternative, CalibrationForm, CalibrationPoint,

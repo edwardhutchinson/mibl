@@ -54,6 +54,18 @@ table returns a borrowed buffer. The catalog never reparses a raw row to discove
 relationships. Text-valued numeric calibration data requires format/radix
 interpretation in the catalog.
 
+Parameter interpretation, numeric interpretation and reference resolution have
+their own homes beside the tables they serve: `catalog/parameters.rs` holds the
+retained PCF index, parameter lookup and description, and the width consensus its
+candidate definitions share; `catalog/encoding.rs` interprets the static encoded
+width a PTC/PFC declaration establishes, the number a text-valued SCOS cell
+records and its unsigned conversion; `catalog/resolution.rs` builds an `Info`
+result with the missing, ambiguous, unsupported and inconsistent problems a
+declared reference reports and names the retained rows those problems offer as
+targets; and `src/catalog.rs` keeps catalog ownership, construction and index
+access. Sibling modules import these helpers explicitly and every module stays
+private, so no new public path exists.
+
 Command resolution groups its responsibilities under `catalog/commands`:
 `src/catalog/commands.rs` holds the root and supporting indexes, lookup and
 candidate construction plus the one helper its children share;
