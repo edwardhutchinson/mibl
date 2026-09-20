@@ -1,9 +1,15 @@
 //! Command header expansion: CCF_PKTID names a TCP packet header whose PCDF records
 //! describe the fixed and parameter elements the command source encodes before the
 //! application data. ICD 7.0 sections "Packet headers" define every retained meaning.
-use super::*;
+use super::super::{
+    Catalog, ambiguity, info, missing, number, reference, resolve, target, unsigned,
+};
+use crate::model::{
+    ArgumentValue, CommandHeader, HeaderField, Info, Location, Position, Problem, ProblemKind,
+    Reference, Scalar, Source, Table, Target, ValueSource,
+};
 use crate::reader::{Ccf, Pcdf, Pcpc, Row, TableLoad, Tcp};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 impl Catalog {
     /// The expanded header of one command. A missing, ambiguous or incomplete declaration

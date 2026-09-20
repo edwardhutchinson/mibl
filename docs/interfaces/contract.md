@@ -54,6 +54,17 @@ table returns a borrowed buffer. The catalog never reparses a raw row to discove
 relationships. Text-valued numeric calibration data requires format/radix
 interpretation in the catalog.
 
+Command resolution groups its responsibilities under `catalog/commands`:
+`src/catalog/commands.rs` holds the root and supporting indexes, lookup and
+candidate construction plus the one helper its children share;
+`commands/layout.rs` builds the recursive CDF element and group tree with its
+declared positions and repetition dependencies; `commands/arguments.rs` builds
+each element's encoding, position and supplied value; `commands/rules.rs`
+resolves the PRF/PRV, PAF/PAS and CCA/CCS argument rules; and `commands/header.rs`
+expands the TCP/PCDF packet header. Each module implements `Catalog` and names
+its dependencies explicitly; the child modules are private, so no new public path
+exists.
+
 | Producer tables | Keys and joins consumed by catalog | Public output |
 |---|---|---|
 | PCF | NAME; PTC/PFC encoding; CURTX plus category; related parameter references return to PCF | ParameterSummary, Encoding, recorded definition and units |
