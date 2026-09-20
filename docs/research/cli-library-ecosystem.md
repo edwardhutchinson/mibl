@@ -22,7 +22,7 @@ Ranked by practical value for a solo developer maintaining a small, high-integri
 | **#7** | **Tier 3: Premature / Unneeded** | **`smol_str`** | String interning | **Negligible gain**: One-shot CLI process terminates and frees RAM in milliseconds; peak memory is already <15 MB. |
 | **#8** | **Tier 3: Premature / Unneeded** | **`thiserror`** | Error derive macro | **Minor code savings**: Hand-written `impl Display` in [`src/lib.rs`](../../src/lib.rs#L29-L50) is only 20 lines. Avoids another proc-macro build step. |
 | **#9** | **Tier 4: Least / Do Not Introduce** | **`memmap2`** | Memory-mapped file I/O | **Premature optimization**: Sequential [`std::fs::read`](../../src/reader.rs#L383) already loads MIB files in 2–4ms. Mmap adds `unsafe` risk for unnoticeable gain. |
-| **#10** | **Tier 4: Least / Do Not Introduce** | **`comfy-table` / `cli-table`** | Terminal table rendering | **Contract violation**: Contract requires unbordered, plain space alignment. The existing 21-line table in [`src/render.rs`](../../src/render.rs#L58-L79) is faster and perfect. |
+| **#10** | **Tier 4: Least / Do Not Introduce** | **`comfy-table` / `cli-table`** | Terminal table rendering | **Contract violation**: Contract requires unbordered, plain space alignment. The existing 21-line table in [`src/render/format.rs`](../../src/render/format.rs#L66-L88) is faster and perfect. |
 | **#11** | **Tier 4: Least / Do Not Introduce** | **`minus` / `pager`** | In-process terminal pager | **High maintenance burden**: Terminal raw mode and signals (`SIGINT`, `SIGWINCH`) add complexity. Standard Unix piping (`mibl ... \| less`) is superior. |
 | **#12** | **Tier 4: Least / Do Not Introduce** | **`miette` / `annotate-snippets`** | Compiler-style diagnostics | **Contract violation**: Contract specifies single-line `mibl: <message>` errors. Compiler code snippets are unneeded for MIB queries. |
 
@@ -130,7 +130,7 @@ The interface contract ([`docs/interfaces/contract.md#representative-cross-check
 - **Why Avoid**: Sequential [`std::fs::read`](../../src/reader.rs#L383) already loads files in 2–4ms. Mmap adds `unsafe` preconditions and signal hazards (e.g. if another process truncates the MIB file during a query).
 
 ### #10. `comfy-table` / `cli-table` (Tier 4 — Least Recommended)
-- **Why Avoid**: Third-party table crates enforce borders, cell wrapping, and terminal dimension queries. The accepted contract mandates plain space-separated columns without borders or wrapping. The existing 21-line table in [`src/render.rs`](../../src/render.rs#L58-L79) is faster, zero-dependency, and 100% compliant.
+- **Why Avoid**: Third-party table crates enforce borders, cell wrapping, and terminal dimension queries. The accepted contract mandates plain space-separated columns without borders or wrapping. The existing 21-line table in [`src/render/format.rs`](../../src/render/format.rs#L66-L88) is faster, zero-dependency, and 100% compliant.
 
 ### #11. `minus` / `pager` (Tier 4 — Least Recommended)
 - **Why Avoid**: Pagers hook OS signals (`SIGINT`, `SIGWINCH`) and manage raw terminal modes, creating high maintenance overhead for a solo developer. Standard Unix piping (`mibl ... | less`) adheres to the Unix philosophy with zero code.
