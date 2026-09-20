@@ -1,4 +1,5 @@
-//! Read-only SCOS MIB snapshots. Parameter, fixed packet and basic command lookups, plus fuzzy search.
+//! Read-only SCOS MIB snapshots. Parameter, fixed packet and basic command lookups,
+//! fuzzy search, and the table listing.
 #![allow(dead_code)] // Declarations are intentionally unused until implementation tickets.
 mod catalog;
 pub mod model;
@@ -75,5 +76,10 @@ impl Mib {
     /// Ties: parameter/packet/command, identity (SPIDs numeric), source.
     pub fn search(&self, query: &str, scope: SearchScope) -> Vec<Candidate> {
         self.catalog.search(query, scope)
+    }
+    /// Every supported table in code order, whether or not the directory provided it.
+    /// Reports come from the one load, so they cannot disagree with the retained rows.
+    pub fn tables(&self) -> Vec<TableReport> {
+        self.catalog.tables()
     }
 }

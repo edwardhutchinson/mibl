@@ -806,3 +806,45 @@ names, duplicate PID roots, case folding and unicode-preserving folding, the
 covers the candidate table for names that never appear in it and the `--details`
 problem evidence naming both TPCF definitions. Every fixture is synthetic; no
 supplied reference row was published.
+
+## Table listing
+
+The maintainer agreed this slice directly, without an issue: a `tables` verb that
+reads the configured `MIB_DIR` like every other verb and reports each supported
+table's code, file name, declared content, the lookup that addresses its rows and
+the state the load left it in. The agreed scope stops there. Files present in the
+directory that the loader does not read are not named, and no per-table column
+inventory is added to the CLI; `--details` adds nothing, as it adds nothing to
+search.
+
+`Table` now carries the loader's own facts about a table: `Table::ALL` lists every
+supported table in code order, and `code`, `file` and `meaning` name it. `reader::read_table`
+takes a `Table`, so the file name a read attempt uses and the file name the listing
+prints cannot drift apart, and it records the attempt as a `TableReport` beside the
+`TableLoad` state it already produced. `Mib::tables` returns those reports, so the
+listing comes from the one load rather than a second directory read, in the same
+`Read`/`Unreadable`/`Missing` distinction the loader already preserved: a readable
+table with no retained rows reports `0` and stays distinct from an absent one.
+`Table::root` names the lookup kind a root table's rows are addressed as, and the
+CLI renders it: `PCF` is `parameter`, `PID` is `packet`, `CCF` is `command`, and
+every supporting table is `-`. Code order is also file-name order, because each
+file is the lowercase code with a `.dat` suffix.
+
+This adds one `Request` and `Response` pair for the existing
+`Mib` operation, so every request still has a public operation and every response
+still has a variant. No reader column, retained record, catalog index, public
+description or existing rendering changed. The listing requires a usable
+directory like every other verb, so the absent and empty `MIB_DIR` errors, the
+inaccessible-directory load error and the no-usable-rows load error keep their
+statuses, and no identity is involved, so no status-1 or status-3 outcome exists
+for this verb.
+
+Cross-check: the listing is generated from `Table` alone, so library tests assert
+that codes and file names are unique, that every file name matches its code, that
+code order is the presented order, that a directory providing every catalogued
+file reports every table as read, and that absent, readable-empty and unusable
+files report three different states. A CLI test asserts every cell of every row
+against `Table` and the fixture's load states, `--details` and `--debug` leaving
+stdout unchanged, and the two `MIB_DIR` errors. The unpublished sample MIB lists
+all 25 tables with its retained row counts, including `vpd.dat` read with no usable
+row. Every fixture is synthetic; no supplied reference row was published.

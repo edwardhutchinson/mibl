@@ -9,6 +9,7 @@ MIB_DIR=/path/to/mib cargo run -- parameter TEMP
 MIB_DIR=/path/to/mib cargo run -- command DEMO_TC
 MIB_DIR=/path/to/mib cargo run -- search mode --scope all
 MIB_DIR=/path/to/mib cargo run -- pus 3,25
+MIB_DIR=/path/to/mib cargo run -- tables
 MIB_DIR=/path/to/mib cargo run -- --debug parameter TEMP
 ```
 
@@ -22,9 +23,10 @@ MIB_DIR=/path/to/mib cargo run -- --debug --details packet 89000
 ```
 
 Syntax is `mibl [OPTIONS] parameter NAME`, `packet SPID`, `command NAME`,
-or `search QUERY [--scope parameters|packets|commands|all]`. Search defaults to
-all three kinds. Global `--debug` and `--details` flags work before or after the
-verb. `--debug` sends loading and query events to stderr without changing stdout.
+`search QUERY [--scope parameters|packets|commands|all]`, or `tables`.
+Search defaults to all three kinds. Global `--debug` and `--details` flags work
+before or after the verb. `--debug` sends loading and query events to stderr
+without changing stdout.
 
 Search matches every recorded name and the descriptions case-insensitively,
 including packet SPIDs. A packet root matches every TPCF name it records, so a
@@ -148,6 +150,34 @@ Tests use synthetic temporary directories.
 
 Run `cargo check --all-targets`, `cargo clippy --all-targets -- -D warnings`, and
 `cargo test` to validate the implementation.
+
+### MIB tables
+
+Use `mibl tables` to see which file holds what, when a file name such as
+`pcf.dat` does not say enough on its own:
+
+```sh
+MIB_DIR=/path/to/mib cargo run -- tables
+```
+
+Every supported table gets one row with its code, the file it comes from, what
+its rows declare, and the lookup that addresses those rows directly:
+`parameter` for `pcf.dat`, `packet` for `pid.dat`, `command` for `ccf.dat`, and
+`-` for every supporting table, which is reached through one of them.
+
+```
+Code  File      Defines                                Lookup     Rows
+CDF   cdf.dat   Telecommand argument elements          -          378
+PCF   pcf.dat   Monitoring parameter definitions       parameter  116
+PID   pid.dat   Telemetry packet definitions           packet       4
+VPD   vpd.dat   Variable packet layout elements        -            0
+```
+
+Rows report what the loaded directory provided: retained row count, `missing` for
+an absent file, or `unreadable` for a file that cannot be read. A readable table
+with no usable row is `0`, which answers differently from `missing`. Codes are
+listed in alphabetical order, which is also file-name order. `--details` adds
+nothing here, as with search.
 
 ### PUS lookup
 

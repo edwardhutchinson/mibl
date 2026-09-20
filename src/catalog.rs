@@ -57,6 +57,11 @@ impl Catalog {
             .map_or(&[], Vec::as_slice)
     }
 
+    /// What the load attempt recorded for each supported table, in code order.
+    pub(crate) fn tables(&self) -> Vec<TableReport> {
+        self.records.reports.clone()
+    }
+
     fn describe_parameter(&self, row: &Row<Pcf>) -> ParameterDescription {
         let mut description = base_parameter(row);
         description.parameter.calibrations = self.calibrations(row);

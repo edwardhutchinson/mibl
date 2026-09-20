@@ -1010,6 +1010,41 @@ pub(super) fn candidates<'a>(
     table(&rows, out)
 }
 
+/// Every supported table, with the file name it comes from, what its rows declare, the
+/// lookup that addresses them directly, and what the loaded directory provided. The
+/// listing never depends on `--details`, which adds nothing here.
+pub(super) fn tables<'a>(
+    reports: impl Iterator<Item = &'a TableReport>,
+    out: &mut dyn Write,
+) -> io::Result<()> {
+    let mut rows = vec![vec![
+        "Code".into(),
+        "File".into(),
+        "Defines".into(),
+        "Lookup".into(),
+        "Rows".into(),
+    ]];
+    for report in reports {
+        rows.push(vec![
+            report.table.code().into(),
+            report.table.file().into(),
+            report.table.meaning().into(),
+            match report.table.root() {
+                Some(TableRoot::Parameter) => "parameter".into(),
+                Some(TableRoot::Packet) => "packet".into(),
+                Some(TableRoot::Command) => "command".into(),
+                None => "-".into(),
+            },
+            match report.rows {
+                TableRows::Missing => "missing".into(),
+                TableRows::Unreadable => "unreadable".into(),
+                TableRows::Read { rows } => rows.to_string(),
+            },
+        ]);
+    }
+    table(&rows, out)
+}
+
 #[cfg(test)]
 mod tests;
 
