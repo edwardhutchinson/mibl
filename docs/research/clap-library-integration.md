@@ -6,7 +6,7 @@ This evaluation assesses whether the `mibl` project should introduce `clap` for 
 
 ## 1. Current CLI Architecture and Contract
 
-The executable CLI entry point and configuration are defined in [`src/main.rs`](../../src/main.rs), with behavioral requirements specified in [`docs/design/cli-output.md`](../design/cli-output.md#a-overview-by-default-evidence-on-request), [`docs/interfaces/contract.md`](../interfaces/contract.md#issue-19-cli-presentation-amendment), and verified in [`tests/cli.rs`](../../tests/cli.rs).
+The executable CLI entry point and configuration are defined in [`src/main.rs`](../../src/main.rs), with behavioral requirements specified in [`docs/design/cli-output.md`](../design/cli-output.md#a-overview-by-default-evidence-on-request), [`docs/interfaces/contract.md`](../interfaces/contract.md#issue-19-cli-presentation-amendment), and verified in the [`tests/cli.rs`](../../tests/cli.rs) integration suite, whose cases live in the `tests/cli/` modules split by command and shared behaviour.
 
 ### 1.1 Current Parsing Implementation
 Currently, argument parsing is implemented manually in 55 lines within `src/main.rs` (`fn configure`, lines 29–83). The routine processes `arguments: Vec<OsString>` and `mib_dir: Option<OsString>`:
@@ -15,13 +15,13 @@ Currently, argument parsing is implemented manually in 55 lines within `src/main
 - **Verb and Argument Matching**: Matches exact positional slices:
   - `parameter NAME`: Validates that `NAME` is non-empty, does not start with `-`, and is valid UTF-8.
   - `packet SPID`: Validates that `SPID` consists entirely of ASCII digits (`s.bytes().all(|b| b.is_ascii_digit())`) and parses into a `u64`. Rejects negative signs (`-1`), positive signs (`+1`), non-digits (`no`), and integer overflow.
-- **Environment Handling**: Reads `MIB_DIR` as an `OsString` via `std::env::var_os("MIB_DIR")`. It strictly distinguishes `None` ("MIB_DIR is not set") from `Some("")` ("MIB_DIR is empty"), while preserving non-Unicode directory paths on Unix ([`tests/cli.rs#L131-L149`](../../tests/cli.rs#L131-L149)).
+- **Environment Handling**: Reads `MIB_DIR` as an `OsString` via `std::env::var_os("MIB_DIR")`. It strictly distinguishes `None` ("MIB_DIR is not set") from `Some("")` ("MIB_DIR is empty"), while preserving non-Unicode directory paths on Unix ([`tests/cli/configuration.rs#L47-L64`](../../tests/cli/configuration.rs#L47-L64)).
 
 ### 1.2 Agreed Application Contract
 The CLI contract establishes strict syntax and process-level semantics:
 
 - **Exact Syntax**: `mibl [--debug] [--details] parameter NAME | packet SPID`.
-- **Strict Prefix Positioning**: Flags may appear in either order (`--debug --details` or `--details --debug`), but *only* before the verb. Flags placed after the verb (e.g., `mibl parameter TEMP --details` or `mibl parameter --details`) are rejected ([`tests/cli.rs#L254-L266`](../../tests/cli.rs#L254-L266)).
+- **Strict Prefix Positioning**: Flags may appear in either order (`--debug --details` or `--details --debug`), but *only* before the verb. Flags placed after the verb (e.g., `mibl parameter TEMP --details` or `mibl parameter --details`) are rejected ([`tests/cli/configuration.rs#L113-L122`](../../tests/cli/configuration.rs#L113-L122)).
 - **Exit Statuses**:
   - `0`: Successful execution (both found descriptions and ambiguous candidate tables).
   - `1`: Silent not-found results (`Lookup::NotFound(NoMatchingIdentity)` and `Lookup::NotFound(DefinitionsUnavailable)`). Emits zero bytes to stdout and stderr when debug is inactive.
@@ -84,7 +84,7 @@ Empirical testing against `mibl`'s test assertions reveals specific points of al
    - Clap natively rejects `--details --details` and `--debug --debug` with `ErrorKind::ArgumentConflict`, satisfying `mibl`'s contract out of the box.
 
 3. **SPID Numeric Validation**:
-   - `mibl` requires SPID to be pure ASCII digits, rejecting `+1`, `-1`, `no`, and overflow ([`tests/cli.rs#L207-L212`](../../tests/cli.rs#L207-L212)).
+   - `mibl` requires SPID to be pure ASCII digits, rejecting `+1`, `-1`, `no`, and overflow ([`tests/cli/packets.rs#L61-L65`](../../tests/cli/packets.rs#L61-L65)).
    - Standard [`clap::value_parser!(u64)`](https://docs.rs/clap/latest/clap/macro.value_parser.html) delegates to Rust's standard unsigned integer parsing, which **accepts `+1`**.
    - To preserve `mibl`'s exact contract, a custom validator (e.g. [`ValueParser::custom`](https://docs.rs/clap/latest/clap/builder/struct.ValueParser.html#method.custom)) checking `s.bytes().all(|b| b.is_ascii_digit())` is required.
 

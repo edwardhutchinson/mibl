@@ -1,4 +1,39 @@
-use super::*;
+//! Telecommand rows and their schemas, and the argument rule family.
+
+use super::Row;
+use super::fields::{CellType, Column, cell, integer_cell, parse_definition, text_cell};
+use crate::model::{
+    CommandName, Definition, FieldMeaning, Info, Problem, ProblemKind, Scalar, Source,
+};
+use CellType::{Code, Integer, Text};
+
+mod rules;
+pub(crate) use rules::{Cca, Ccs, Paf, Pas, Prf, Prv};
+pub(super) use rules::{parse_cca, parse_ccs, parse_paf, parse_pas, parse_prf, parse_prv};
+
+pub(crate) struct Ccf {
+    pub cname: Info<CommandName>,
+    pub descr: Info<String>,
+    pub descr2: Info<String>,
+    pub ctype: Info<String>,
+    pub critical: Info<String>,
+    pub pktid: Info<String>,
+    pub r#type: Info<i64>,
+    pub stype: Info<i64>,
+    pub apid: Info<i64>,
+    pub npars: Info<i64>,
+    pub plan: Info<String>,
+    pub exec: Info<String>,
+    pub ilscope: Info<String>,
+    pub ilstage: Info<String>,
+    pub subsys: Info<i64>,
+    pub hipri: Info<String>,
+    pub mapid: Info<i64>,
+    pub defset: Info<String>,
+    pub rapid: Info<i64>,
+    pub ack: Info<i64>,
+    pub subschedid: Info<i64>,
+}
 
 const CCF: &[Column] = &[
     Column {
@@ -128,6 +163,7 @@ const CCF: &[Column] = &[
         default: None,
     },
 ];
+
 pub(super) fn parse_ccf(text: &str, source: Source) -> Result<Row<Ccf>, String> {
     let definition = parse_definition(text, source, CCF)?;
     let cells = Ccf {
@@ -157,6 +193,19 @@ pub(super) fn parse_ccf(text: &str, source: Source) -> Result<Row<Ccf>, String> 
         subschedid: integer_cell(&definition, 20),
     };
     Ok(Row { definition, cells })
+}
+
+pub(crate) struct Cdf {
+    pub cname: Info<CommandName>,
+    pub eltype: Info<String>,
+    pub descr: Info<String>,
+    pub ellen: Info<i64>,
+    pub bit: Info<i64>,
+    pub grpsize: Info<i64>,
+    pub pname: Info<String>,
+    pub r#inter: Info<String>,
+    pub value: Info<String>,
+    pub tmid: Info<String>,
 }
 
 const CDF: &[Column] = &[
@@ -221,6 +270,7 @@ const CDF: &[Column] = &[
         default: None,
     },
 ];
+
 pub(super) fn parse_cdf(text: &str, source: Source) -> Result<Row<Cdf>, String> {
     let definition = parse_definition(text, source, CDF)?;
     let cells = Cdf {
@@ -239,6 +289,26 @@ pub(super) fn parse_cdf(text: &str, source: Source) -> Result<Row<Cdf>, String> 
         tmid: text_cell(&definition, 9),
     };
     Ok(Row { definition, cells })
+}
+
+pub(crate) struct Cpc {
+    pub name: Info<String>,
+    pub descr: Info<String>,
+    pub ptc: Info<i64>,
+    pub pfc: Info<i64>,
+    pub dispfmt: Info<String>,
+    pub radix: Info<String>,
+    pub unit: Info<String>,
+    pub categ: Info<String>,
+    pub prfref: Info<String>,
+    pub ccaref: Info<String>,
+    pub pafref: Info<String>,
+    pub r#inter: Info<String>,
+    pub defval: Info<String>,
+    pub corr: Info<String>,
+    pub obtip: Info<i64>,
+    pub descr2: Info<String>,
+    pub endian: Info<String>,
 }
 
 const CPC: &[Column] = &[
@@ -345,6 +415,7 @@ const CPC: &[Column] = &[
         default: None,
     },
 ];
+
 pub(super) fn parse_cpc(text: &str, source: Source) -> Result<Row<Cpc>, String> {
     let mut definition = parse_definition(text, source, CPC)?;
     reconcile_cpc(&mut definition);
@@ -366,249 +437,6 @@ pub(super) fn parse_cpc(text: &str, source: Source) -> Result<Row<Cpc>, String> 
         obtip: integer_cell(&definition, 14),
         descr2: text_cell(&definition, 15),
         endian: text_cell(&definition, 16),
-    };
-    Ok(Row { definition, cells })
-}
-
-const CCA: &[Column] = &[
-    Column {
-        name: "CCA_NUMBR",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "CCA_DESCR",
-        kind: Text,
-        required: false,
-        default: None,
-    },
-    Column {
-        name: "CCA_ENGFMT",
-        kind: Code("RIU"),
-        required: false,
-        default: Some("R"),
-    },
-    Column {
-        name: "CCA_RAWFMT",
-        kind: Code("RIU"),
-        required: false,
-        default: Some("U"),
-    },
-    Column {
-        name: "CCA_RADIX",
-        kind: Code("DHO"),
-        required: false,
-        default: Some("D"),
-    },
-    Column {
-        name: "CCA_UNIT",
-        kind: Text,
-        required: false,
-        default: None,
-    },
-    Column {
-        name: "CCA_NCURVE",
-        kind: Integer,
-        required: false,
-        default: None,
-    },
-];
-pub(super) fn parse_cca(text: &str, source: Source) -> Result<Row<Cca>, String> {
-    let definition = parse_definition(text, source, CCA)?;
-    let cells = Cca {
-        numbr: text_cell(&definition, 0),
-        descr: text_cell(&definition, 1),
-        engfmt: text_cell(&definition, 2),
-        rawfmt: text_cell(&definition, 3),
-        radix: text_cell(&definition, 4),
-        unit: text_cell(&definition, 5),
-        ncurve: integer_cell(&definition, 6),
-    };
-    Ok(Row { definition, cells })
-}
-
-const CCS: &[Column] = &[
-    Column {
-        name: "CCS_NUMBR",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "CCS_XVALS",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "CCS_YVALS",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-];
-pub(super) fn parse_ccs(text: &str, source: Source) -> Result<Row<Ccs>, String> {
-    let definition = parse_definition(text, source, CCS)?;
-    let cells = Ccs {
-        numbr: text_cell(&definition, 0),
-        xvals: text_cell(&definition, 1),
-        yvals: text_cell(&definition, 2),
-    };
-    Ok(Row { definition, cells })
-}
-
-const PAF: &[Column] = &[
-    Column {
-        name: "PAF_NUMBR",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "PAF_DESCR",
-        kind: Text,
-        required: false,
-        default: None,
-    },
-    Column {
-        name: "PAF_RAWFMT",
-        kind: Code("RIU"),
-        required: false,
-        default: Some("U"),
-    },
-    Column {
-        name: "PAF_NALIAS",
-        kind: Integer,
-        required: false,
-        default: None,
-    },
-];
-pub(super) fn parse_paf(text: &str, source: Source) -> Result<Row<Paf>, String> {
-    let definition = parse_definition(text, source, PAF)?;
-    let cells = Paf {
-        numbr: text_cell(&definition, 0),
-        descr: text_cell(&definition, 1),
-        rawfmt: text_cell(&definition, 2),
-        nalias: integer_cell(&definition, 3),
-    };
-    Ok(Row { definition, cells })
-}
-
-const PAS: &[Column] = &[
-    Column {
-        name: "PAS_NUMBR",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "PAS_ALTXT",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "PAS_ALVAL",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-];
-pub(super) fn parse_pas(text: &str, source: Source) -> Result<Row<Pas>, String> {
-    let definition = parse_definition(text, source, PAS)?;
-    let cells = Pas {
-        numbr: text_cell(&definition, 0),
-        altxt: text_cell(&definition, 1),
-        alval: text_cell(&definition, 2),
-    };
-    Ok(Row { definition, cells })
-}
-
-const PRF: &[Column] = &[
-    Column {
-        name: "PRF_NUMBR",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "PRF_DESCR",
-        kind: Text,
-        required: false,
-        default: None,
-    },
-    Column {
-        name: "PRF_INTER",
-        kind: Code("RE"),
-        required: false,
-        default: Some("R"),
-    },
-    Column {
-        name: "PRF_DSPFMT",
-        kind: Code("AIURTD"),
-        required: false,
-        default: Some("R"),
-    },
-    Column {
-        name: "PRF_RADIX",
-        kind: Code("DHO"),
-        required: false,
-        default: Some("D"),
-    },
-    Column {
-        name: "PRF_NRANGE",
-        kind: Integer,
-        required: false,
-        default: None,
-    },
-    Column {
-        name: "PRF_UNIT",
-        kind: Text,
-        required: false,
-        default: None,
-    },
-];
-pub(super) fn parse_prf(text: &str, source: Source) -> Result<Row<Prf>, String> {
-    let definition = parse_definition(text, source, PRF)?;
-    let cells = Prf {
-        numbr: text_cell(&definition, 0),
-        descr: text_cell(&definition, 1),
-        r#inter: text_cell(&definition, 2),
-        dspfmt: text_cell(&definition, 3),
-        radix: text_cell(&definition, 4),
-        nrange: integer_cell(&definition, 5),
-        unit: text_cell(&definition, 6),
-    };
-    Ok(Row { definition, cells })
-}
-
-const PRV: &[Column] = &[
-    Column {
-        name: "PRV_NUMBR",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "PRV_MINVAL",
-        kind: Text,
-        required: true,
-        default: None,
-    },
-    Column {
-        name: "PRV_MAXVAL",
-        kind: Text,
-        required: false,
-        default: None,
-    },
-];
-pub(super) fn parse_prv(text: &str, source: Source) -> Result<Row<Prv>, String> {
-    let definition = parse_definition(text, source, PRV)?;
-    let cells = Prv {
-        numbr: text_cell(&definition, 0),
-        minval: text_cell(&definition, 1),
-        maxval: text_cell(&definition, 2),
     };
     Ok(Row { definition, cells })
 }
