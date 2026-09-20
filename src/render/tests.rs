@@ -1,4 +1,4 @@
-use super::*;
+use mibl::model::*;
 
 fn info<T>(value: T) -> Info<T> {
     Info {
