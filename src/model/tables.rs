@@ -28,6 +28,7 @@ pub enum Table {
     Pcdf,
     Pcpc,
 }
+
 impl Table {
     /// Every table the loader reads, ordered by code. The file name orders identically,
     /// because each file name is its lowercase code with a `.dat` suffix.
@@ -58,6 +59,7 @@ impl Table {
         Table::Txp,
         Table::Vpd,
     ];
+
     /// The declared code, as it appears in field names, reference labels and rows.
     pub fn code(self) -> &'static str {
         match self {
@@ -88,6 +90,7 @@ impl Table {
             Table::Pcpc => "PCPC",
         }
     }
+
     /// The file name the loader reads, relative to the MIB directory.
     pub fn file(self) -> &'static str {
         match self {
@@ -118,6 +121,7 @@ impl Table {
             Table::Pcpc => "pcpc.dat",
         }
     }
+
     /// What the table's rows declare, in the glossary's terms.
     pub fn meaning(self) -> &'static str {
         match self {
@@ -148,6 +152,7 @@ impl Table {
             Table::Pcpc => "Command header parameters",
         }
     }
+
     /// The root kind a table's rows are looked up as, when a lookup addresses them directly.
     pub fn root(self) -> Option<TableRoot> {
         match self {
@@ -158,6 +163,7 @@ impl Table {
         }
     }
 }
+
 /// The kind of root definition a table's rows are addressed as.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TableRoot {
@@ -165,12 +171,14 @@ pub enum TableRoot {
     Packet,
     Command,
 }
+
 /// One table as the loader left it. Every read attempt is reported, not only the failures.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TableReport {
     pub table: Table,
     pub rows: TableRows,
 }
+
 /// A readable table is distinguished from an absent one even when it retains no rows.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TableRows {

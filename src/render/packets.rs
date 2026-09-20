@@ -1,5 +1,6 @@
 //! The packet view: identification criteria and the flattened layout of the packet's parameter
 //! occurrences, including declared repetition and condition groups.
+
 use mibl::model::*;
 use std::{
     collections::BTreeMap,
@@ -117,6 +118,7 @@ pub(crate) fn packet(p: &PacketDescription, details: bool, out: &mut dyn Write) 
     view.info(&i.criteria, "Identification criteria");
     view.finish(details, out)
 }
+
 fn criterion_number(i: &PacketIdentification, index: usize) -> usize {
     if index == 0
         && !i.definitions.is_empty()
@@ -129,6 +131,7 @@ fn criterion_number(i: &PacketIdentification, index: usize) -> usize {
         index + 1
     }
 }
+
 fn collect_layout<'a>(
     layout: &'a [Layout<ParameterOccurrence>],
     occurrences: &mut Vec<&'a ParameterOccurrence>,

@@ -6,6 +6,7 @@ use std::{
 };
 
 pub struct Fixture(PathBuf);
+
 impl Fixture {
     pub fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
@@ -17,13 +18,16 @@ impl Fixture {
         fs::create_dir(&path).unwrap();
         Self(path)
     }
+
     pub fn path(&self) -> &Path {
         &self.0
     }
+
     pub fn write(&self, file: &str, text: &str) {
         fs::write(self.0.join(file), text).unwrap();
     }
 }
+
 impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);

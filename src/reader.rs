@@ -1,7 +1,9 @@
 //! Private typed rows and shared loading. Each table family's cells, schema
 //! and parser live together in its own module.
+
 use crate::{LoadError, model::*};
 use std::{io, path::Path};
+
 mod calibrations;
 mod commands;
 mod fields;
@@ -9,6 +11,7 @@ mod header;
 mod packets;
 mod parameters;
 mod variable;
+
 pub(crate) use calibrations::{Caf, Cap, Cur, Lgf, Mcf, Txf, Txp};
 use calibrations::{parse_caf, parse_cap, parse_cur, parse_lgf, parse_mcf, parse_txf, parse_txp};
 pub(crate) use commands::{Cca, Ccf, Ccs, Cdf, Cpc, Paf, Pas, Prf, Prv};
@@ -30,12 +33,14 @@ pub(crate) struct Row<T> {
     pub definition: Definition,
     pub cells: T,
 }
+
 /// Missing/unreadable tables differ from readable tables with no retained rows.
 pub(crate) enum TableLoad<T> {
     Missing,
     Unreadable(io::Error),
     Read { rows: Vec<Row<T>> },
 }
+
 /// Consumes available supported rows, including supporting-only snapshots.
 pub(crate) struct Records {
     pub reports: Vec<TableReport>,
@@ -165,6 +170,7 @@ impl<T> TableLoad<T> {
             _ => &[],
         }
     }
+
     /// What this attempt reported, for the table listing.
     fn report(&self, table: Table) -> TableReport {
         TableReport {

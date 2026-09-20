@@ -2,6 +2,7 @@
 //! alignment, default annotations, and the labels that name sources, references, positions and
 //! encodings. Feature views and evidence collection both read their text through here, so this
 //! module never names a feature entry point or an evidence `View`.
+
 use mibl::model::*;
 use std::{
     collections::BTreeMap,
@@ -20,6 +21,7 @@ pub(super) fn text(s: &str) -> String {
         })
         .collect()
 }
+
 pub(super) fn quoted(s: &str) -> String {
     let escaped: String = s
         .chars()
@@ -36,25 +38,30 @@ pub(super) fn quoted(s: &str) -> String {
 pub(super) fn source(s: &Source) -> String {
     format!("{}:{}", text(&s.file.to_string_lossy()), s.line)
 }
+
 pub(super) fn number<T: std::fmt::Display>(i: &Info<T>) -> String {
     i.value
         .as_ref()
         .map_or_else(|| "unavailable".into(), ToString::to_string)
 }
+
 pub(super) fn string(i: &Info<String>) -> String {
     i.value
         .as_deref()
         .map_or_else(|| "unavailable".into(), text)
 }
+
 pub(super) fn width(i: &Info<u64>) -> String {
     i.value
         .map_or_else(|| "unavailable".into(), |n| format!("{n} bits"))
 }
+
 pub(super) fn scalar_value(i: &Info<Scalar>) -> String {
     i.value
         .as_ref()
         .map_or_else(|| "unavailable".into(), scalar)
 }
+
 pub(super) fn scalar(s: &Scalar) -> String {
     match s {
         Scalar::Text(s) | Scalar::Code(s) | Scalar::Decimal(s) => quoted(s),
@@ -63,6 +70,7 @@ pub(super) fn scalar(s: &Scalar) -> String {
         Scalar::Boolean(b) => b.to_string(),
     }
 }
+
 /// Rows aligned on display width, with two spaces between columns and no borders or wrapping.
 pub(super) fn table(rows: &[Vec<String>], out: &mut dyn Write) -> io::Result<()> {
     let columns = rows.iter().map(Vec::len).max().unwrap_or(0);
@@ -86,6 +94,7 @@ pub(super) fn table(rows: &[Vec<String>], out: &mut dyn Write) -> io::Result<()>
     }
     Ok(())
 }
+
 pub(super) fn default_suffix(d: &Definition, name: &str) -> &'static str {
     if d.fields.iter().flat_map(|f| &f.meanings).any(|m| {
         m.schema_name == name
@@ -99,6 +108,7 @@ pub(super) fn default_suffix(d: &Definition, name: &str) -> &'static str {
         ""
     }
 }
+
 pub(super) fn field_value<'a>(d: &'a Definition, name: &str) -> Option<&'a Scalar> {
     d.fields
         .iter()
@@ -109,6 +119,7 @@ pub(super) fn field_value<'a>(d: &'a Definition, name: &str) -> Option<&'a Scala
         .as_ref()
         .map(|i| &i.value)
 }
+
 /// A recorded textual field, printed without the quoting that marks an interpreted value.
 pub(super) fn recorded_text<'a>(d: &'a Definition, name: &str) -> Option<&'a str> {
     match field_value(d, name)? {
@@ -116,6 +127,7 @@ pub(super) fn recorded_text<'a>(d: &'a Definition, name: &str) -> Option<&'a str
         _ => None,
     }
 }
+
 pub(super) fn parameter_summary(p: &ParameterSummary) -> Vec<String> {
     let e = &p.encoding;
     let kind = encoding_kind(e);
@@ -144,6 +156,7 @@ pub(super) fn parameter_summary(p: &ParameterSummary) -> Vec<String> {
         ),
     ]
 }
+
 pub(super) fn encoding_kind(e: &Encoding) -> &'static str {
     match e.ptc.value {
         Some(1) => "boolean",
@@ -161,6 +174,7 @@ pub(super) fn encoding_kind(e: &Encoding) -> &'static str {
         _ => "unavailable",
     }
 }
+
 pub(super) fn position(p: &Info<Position>) -> String {
     match &p.value {
         Some(Position::PacketAbsolute { byte, bit }) => format!("byte {byte} bit {bit}"),
@@ -171,9 +185,11 @@ pub(super) fn position(p: &Info<Position>) -> String {
         None => "unavailable".into(),
     }
 }
+
 pub(super) fn table_label(table: &Table) -> String {
     format!("{table:?}").to_uppercase()
 }
+
 pub(super) fn reference(r: &Reference) -> String {
     match r {
         Reference::Root(Identity::Parameter(n)) => format!("PCF NAME {}", text(&n.0)),
@@ -185,6 +201,7 @@ pub(super) fn reference(r: &Reference) -> String {
         Reference::Deferred { concept, key } => format!("{} {}", text(concept), text(key)),
     }
 }
+
 /// The problem markers of the ids collected while rendering one value, as ` [P1] [P2]`.
 pub(super) fn markers(ids: &[usize]) -> String {
     ids.iter().map(|id| format!(" [P{id}]")).collect()
@@ -221,6 +238,7 @@ pub(super) fn repeat(o: &ParameterOccurrence, seen: &mut BTreeMap<Source, u64>) 
         parts.join("; ")
     }
 }
+
 /// How one occurrence's declared location reads, with its offset default marker. Shared between
 /// the parameter and packet occurrence tables for the same reason as [`repeat`].
 pub(super) fn location_text(o: &ParameterOccurrence) -> String {

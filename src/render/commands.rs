@@ -1,5 +1,6 @@
 //! The command view: the command's own summary, its application-data arguments with their
 //! declared rules, and the expanded packet header.
+
 use mibl::model::*;
 use std::io::{self, Write};
 

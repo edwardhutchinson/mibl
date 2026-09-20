@@ -1,8 +1,10 @@
 mod common;
+
 use common::Fixture;
 use mibl::{Mib, model::*};
 
 const PID: &str = "3\t25\t42\t7\t0\t89000\tSynthetic housekeeping\t\t-1\t10";
+
 fn fixture() -> Fixture {
     let dir = Fixture::new();
     dir.write("pcf.dat", "ZUT00002\tMode\t\t\t3\t4\t99\t\t\tN\tR");
@@ -12,6 +14,7 @@ fn fixture() -> Fixture {
     dir.write("plf.dat", "ZUT00002\t89000\t19\t0");
     dir
 }
+
 #[test]
 fn inspect_fixed_packet_and_follow_parameter_back_to_its_packet() {
     let dir = fixture();

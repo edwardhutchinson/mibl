@@ -1,4 +1,5 @@
 mod common;
+
 use common::Fixture;
 use mibl::{Mib, model::*};
 
@@ -12,18 +13,21 @@ fn fixture(vpd: &str) -> Fixture {
     dir.write("vpd.dat", vpd);
     dir
 }
+
 fn packet(mib: &Mib) -> PacketDescription {
     let Lookup::Found(p) = mib.packet(PacketSpid(100)) else {
         panic!("expected packet")
     };
     p
 }
+
 fn element(l: &Layout<ParameterOccurrence>) -> &ParameterOccurrence {
     let Layout::Element(o) = l else {
         panic!("expected occurrence")
     };
     o
 }
+
 #[test]
 fn ordered_variable_fields_use_encoding_padding_and_signed_offsets() {
     let dir = fixture("7\t2\tCOUNT\t\t\t\t\t\t99\t\t\t\t\t-4\n7\t1\tVALUE\t\t\t\t\t\t1");

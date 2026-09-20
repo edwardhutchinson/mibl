@@ -9,6 +9,7 @@ pub struct Encoding {
     pub endian: Info<String>,
     pub encoded_bits: Info<u64>,
 }
+
 #[derive(Clone, Debug)]
 pub enum Position {
     PacketAbsolute {
@@ -21,22 +22,26 @@ pub enum Position {
     RelativeBits(i64),
     Runtime(RuntimeDeclaration),
 }
+
 #[derive(Clone, Debug)]
 pub struct Location {
     pub position: Info<Position>,
     pub encoded_bits: Info<u64>,
     pub constraints: Vec<RuntimeDeclaration>,
 }
+
 #[derive(Clone, Debug)]
 pub enum Repetition {
     Fixed { count: u64, stride_bits: Info<u64> },
     Runtime(RuntimeDeclaration),
 }
+
 #[derive(Clone, Debug)]
 pub enum Enclosure {
     Repetition(Info<Repetition>),
     Condition(RuntimeDeclaration),
 }
+
 /// Siblings in declared order; duplicate positions survive with source tie-breaks.
 #[derive(Clone, Debug)]
 pub enum Layout<T> {

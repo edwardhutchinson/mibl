@@ -2,11 +2,13 @@
 //! ownership and builds every index in turn: parameters, calibrations, packets, commands,
 //! then the PUS listing. A query reads one index and expands only the relationships its
 //! retained rows declare; the index maps below are the catalog's only retained state.
+
 use crate::{
     model::*,
     reader::{Records, Row},
 };
 use std::collections::HashMap;
+
 mod calibrations;
 mod commands;
 mod encoding;
@@ -16,12 +18,15 @@ mod pus;
 mod resolution;
 mod search;
 mod variable;
+
 /// Stable within this snapshot; points into retained root rows, never a public handle.
 pub(crate) struct RowId(usize);
+
 enum PusRow {
     Packet(RowId),
     Command(RowId),
 }
+
 pub(crate) struct Catalog {
     records: Records,
     parameters: HashMap<ParameterName, Vec<RowId>>,
@@ -30,6 +35,7 @@ pub(crate) struct Catalog {
     pus: std::collections::BTreeMap<(u16, Option<u16>), Vec<PusRow>>,
     supporting: HashMap<(Table, String), Vec<RowId>>,
 }
+
 impl Catalog {
     /// Takes ownership. Relationship failures become Info problems, not load errors.
     pub(crate) fn new(records: Records) -> Self {
@@ -48,6 +54,7 @@ impl Catalog {
         catalog.index_pus();
         catalog
     }
+
     fn related(&self, table: Table, key: String) -> &[RowId] {
         self.supporting
             .get(&(table, key))

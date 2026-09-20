@@ -1,5 +1,6 @@
 //! Table listings: the candidates of an ambiguous or searched identity, and every supported
 //! table with what the loaded directory provided for it.
+
 use mibl::model::*;
 use std::io::{self, Write};
 

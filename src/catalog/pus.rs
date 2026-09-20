@@ -1,4 +1,5 @@
 //! Duplicate-preserving PUS index over retained packet and command definitions.
+
 use super::{Catalog, PusRow, RowId, commands::command_candidate, encoding::unsigned};
 use crate::model::*;
 

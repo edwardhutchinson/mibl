@@ -480,12 +480,14 @@ impl Catalog {
 fn pic_key(service: Option<i64>, subtype: Option<i64>) -> String {
     format!("{service:?}/{subtype:?}")
 }
+
 fn position_key(position: &Info<Position>) -> Option<(u64, u8)> {
     match position.value {
         Some(Position::PacketAbsolute { byte, bit }) => Some((byte, bit)),
         _ => None,
     }
 }
+
 fn packet_position(byte: &Info<i64>, bit: &Info<i64>) -> Info<Position> {
     match (byte.value.and_then(|v| u64::try_from(v).ok()), bit.value) {
         (Some(byte_value), Some(bit_value @ 0..=7)) => info(
@@ -498,6 +500,7 @@ fn packet_position(byte: &Info<i64>, bit: &Info<i64>) -> Info<Position> {
         _ => unavailable(&byte.sources[0], "Invalid packet byte/bit position"),
     }
 }
+
 fn reconcile_cells(
     cells: &[&Info<i64>],
     definitions: &[Definition],

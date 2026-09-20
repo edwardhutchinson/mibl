@@ -15,6 +15,7 @@ use std::collections::HashMap;
 /// CDF_GRPSIZE is a two-digit count of 1 to 99 following elements; a larger declaration is out
 /// of range and stays clamped to the elements its group retains.
 const MAX_GROUP_SIZE: i64 = 99;
+
 /// CDF groups nest and CDF_GRPSIZE counts following records, so a declaration cycle must stop
 /// descending; beyond this depth the repeater stays an element with its problem.
 const MAX_GROUP_DEPTH: usize = 64;

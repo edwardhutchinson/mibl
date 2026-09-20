@@ -1,5 +1,6 @@
 //! The parameter view: the parameter's own summary, the packets that contain it and where it
 //! occurs in each, and its declared calibration alternatives.
+
 use mibl::model::*;
 use std::{
     collections::BTreeMap,

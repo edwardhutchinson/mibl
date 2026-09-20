@@ -1,4 +1,5 @@
 mod common;
+
 use common::Fixture;
 use mibl::{Mib, model::*};
 
@@ -11,12 +12,14 @@ fn parameter(dir: &Fixture) -> ParameterSummary {
     };
     p.parameter
 }
+
 fn root(dir: &Fixture, category: &str, key: &str) {
     dir.write(
         "pcf.dat",
         &format!("TEMP\tTemperature\t\tK\t3\t4\t\t\t\t{category}\tR\t{key}"),
     );
 }
+
 #[test]
 fn numerical_curve_preserves_points_formats_and_recorded_defaults() {
     let dir = Fixture::new();

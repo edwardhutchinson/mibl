@@ -7,6 +7,7 @@ fn info<T>(value: T) -> Info<T> {
         sources: vec![],
     }
 }
+
 fn definition(file: &str, line: usize) -> Definition {
     Definition {
         source: Source {
@@ -16,6 +17,7 @@ fn definition(file: &str, line: usize) -> Definition {
         fields: vec![],
     }
 }
+
 fn parameter_result() -> ParameterDescription {
     ParameterDescription {
         parameter: ParameterSummary {
@@ -34,6 +36,7 @@ fn parameter_result() -> ParameterDescription {
         occurrences: info(vec![]),
     }
 }
+
 fn missing(key: &str) -> Problem {
     Problem {
         kind: ProblemKind::MissingReference {

@@ -3,6 +3,7 @@
 //! overview and the optional recorded-field and problem-evidence sections. Every entry point that
 //! reports definitions and problems uses exactly one view, so definition ids, problem ids,
 //! deduplication, contexts and evidence order stay stable across a result.
+
 use mibl::model::*;
 use std::io::{self, Write};
 
@@ -16,16 +17,19 @@ fn alternatives<T>(a: &AtLeastTwo<T>) -> impl Iterator<Item = &T> {
         .chain(std::iter::once(a.second.as_ref()))
         .chain(a.rest.iter())
 }
+
 struct DefinitionEntry {
     definition: Definition,
     uses: Vec<String>,
     summary: Option<Vec<String>>,
 }
+
 struct ProblemEntry {
     problem: Problem,
     contexts: Vec<String>,
     evidence: Vec<String>,
 }
+
 /// One result's definitions and problems, registered in the order the renderer reaches them.
 #[derive(Default)]
 pub(super) struct View {
@@ -33,6 +37,7 @@ pub(super) struct View {
     problems: Vec<ProblemEntry>,
     declarations: Vec<String>,
 }
+
 impl View {
     pub(super) fn definition(&mut self, d: &Definition, context: &str) -> usize {
         let id = if let Some(index) = self
@@ -64,12 +69,14 @@ impl View {
         }
         id
     }
+
     pub(super) fn info<T>(&mut self, i: &Info<T>, context: &str) -> Vec<usize> {
         i.problems
             .iter()
             .map(|p| self.problem(p, context))
             .collect()
     }
+
     pub(super) fn target(&mut self, t: &Target, context: &str) -> String {
         let id = self.definition(&t.definition, context);
         format!(
@@ -78,6 +85,7 @@ impl View {
             source(&t.definition.source)
         )
     }
+
     fn runtime(&mut self, r: &RuntimeDeclaration, context: &str) -> Vec<String> {
         let mut lines = vec![format!("{context}: {}", text(&r.expression))];
         lines.extend(r.sources.iter().map(|s| format!("Source: {}", source(s))));
@@ -97,6 +105,7 @@ impl View {
         }
         lines
     }
+
     fn problem(&mut self, p: &Problem, context: &str) -> usize {
         let id = if let Some(index) = self.problems.iter().position(|e| e.problem == *p) {
             if self.problems[index].contexts.iter().any(|s| s == context) {
@@ -181,6 +190,7 @@ impl View {
         }
         id
     }
+
     pub(super) fn parameter(&mut self, p: &ParameterSummary, context: &str) {
         let id = self.definition(&p.definition, context);
         self.definitions[id - 1].summary = Some(parameter_summary(p));
@@ -207,6 +217,7 @@ impl View {
             }
         }
     }
+
     pub(super) fn calibration(&mut self, c: &Calibration, context: &str) {
         let id = self.definition(
             &c.definition,
@@ -257,6 +268,7 @@ impl View {
             None => {}
         }
     }
+
     pub(super) fn packet(&mut self, p: &PacketSummary, context: &str) {
         self.definition(&p.definition, context);
         self.info(&p.name, &format!("{context} name"));
@@ -268,10 +280,12 @@ impl View {
             }
         }
     }
+
     pub(super) fn declaration(&mut self, r: &RuntimeDeclaration, context: &str) {
         let lines = self.runtime(r, context);
         self.declarations.extend(lines);
     }
+
     pub(super) fn location(&mut self, l: &Location, context: &str) -> Vec<usize> {
         let mut ids = self.info(&l.position, &format!("{context} location"));
         ids.extend(self.info(&l.encoded_bits, &format!("{context} width")));
@@ -285,6 +299,7 @@ impl View {
         ids.dedup();
         ids
     }
+
     pub(super) fn occurrence(&mut self, o: &ParameterOccurrence, context: &str) -> Vec<usize> {
         if let Some(p) = &o.parameter.value {
             let id = self.definition(&p.definition, context);
@@ -306,6 +321,7 @@ impl View {
         ids.dedup();
         ids
     }
+
     pub(super) fn repetition(&mut self, r: &Info<Repetition>, context: &str) {
         self.info(r, &format!("{context} repetition"));
         match &r.value {
@@ -316,6 +332,7 @@ impl View {
             None => {}
         }
     }
+
     pub(super) fn finish(&self, details: bool, out: &mut dyn Write) -> io::Result<()> {
         writeln!(out, "\nProblems")?;
         if self.problems.is_empty() {
@@ -415,6 +432,7 @@ impl View {
         Ok(())
     }
 }
+
 fn meaning_lines(m: &FieldMeaning) -> Vec<String> {
     let mut lines = Vec::new();
     match &m.interpretation.value {
@@ -437,6 +455,7 @@ fn meaning_lines(m: &FieldMeaning) -> Vec<String> {
     }
     lines
 }
+
 fn problem_summary(p: &Problem) -> String {
     match &p.kind {
         ProblemKind::MissingReference { reference: r } => format!(

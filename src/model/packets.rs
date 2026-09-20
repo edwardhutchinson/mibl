@@ -16,11 +16,13 @@ pub struct PacketSummary {
     pub description: Info<String>,
     pub definition: Definition,
 }
+
 #[derive(Clone, Debug)]
 pub struct PacketOccurrences {
     pub packet: Info<PacketSummary>,
     pub occurrences: Vec<ParameterOccurrence>,
 }
+
 #[derive(Clone, Debug)]
 pub struct ParameterOccurrence {
     pub reference: ParameterName,
@@ -31,12 +33,14 @@ pub struct ParameterOccurrence {
     /// Recorded declarations for the enclosure path, outermost first.
     pub enclosing_definitions: Vec<Definition>,
 }
+
 #[derive(Clone, Debug)]
 pub struct IdentificationCriterion {
     pub expected: Info<u64>,
     pub extraction: Location,
     pub definitions: Vec<Definition>,
 }
+
 #[derive(Clone, Debug)]
 pub struct PacketIdentification {
     /// Matching PIC rows, including definitions that disable additional criteria.
@@ -46,6 +50,7 @@ pub struct PacketIdentification {
     pub service_subtype: Info<u16>,
     pub criteria: Info<Vec<IdentificationCriterion>>,
 }
+
 #[derive(Clone, Debug)]
 pub struct PacketDescription {
     pub packet: PacketSummary,

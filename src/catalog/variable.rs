@@ -557,6 +557,7 @@ fn runtime_info<T>(value: Option<T>, declaration: &RuntimeDeclaration) -> Info<T
         }],
     }
 }
+
 fn group_problem(row: &Row<Vpd>, explanation: &str) -> Problem {
     Problem {
         kind: ProblemKind::InconsistentDefinition {
@@ -577,6 +578,7 @@ fn group_problem(row: &Row<Vpd>, explanation: &str) -> Problem {
         explanation: explanation.into(),
     }
 }
+
 fn update_enclosure(
     layout: &mut [Layout<ParameterOccurrence>],
     depth: usize,

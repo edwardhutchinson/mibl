@@ -1,4 +1,5 @@
 mod common;
+
 use common::{Fixture, PARAMETER};
 use mibl::{Mib, model::*};
 
@@ -345,6 +346,7 @@ DEMO_TC\tF\tN2\t8\t24\t3\tN2\tR\t1\n\
 DEMO_TC\tE\tType\t8\t32\t\tTYPE\tR\n\
 DEMO_TC\tF\tN3\t8\t40\t1\tN3\tR\t1\n\
 DEMO_TC\tE\tSubtype\t8\t48\t\tSUBTYPE\tR";
+
 const NESTED_PARAMETERS: &str = "N1\tGroup count\t3\t4\nAPID\tApplication id\t3\t12\nN2\tType count\t3\t4\nTYPE\tType\t3\t4\nN3\tSubtype count\t3\t4\nSUBTYPE\tSubtype\t3\t4";
 
 /// The declared elements of a layout in traversal order, whether or not a group encloses them.

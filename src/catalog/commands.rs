@@ -104,6 +104,7 @@ impl Catalog {
         }
     }
 }
+
 pub(super) fn command_candidate(row: &Row<Ccf>) -> Candidate {
     Candidate {
         service_type: unsigned(&row.cells.r#type, "Service type").value,

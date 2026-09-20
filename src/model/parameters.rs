@@ -17,6 +17,7 @@ pub struct ParameterSummary {
     pub units: Info<String>,
     pub calibrations: Info<Vec<CalibrationAlternative>>,
 }
+
 #[derive(Clone, Debug)]
 pub struct ParameterDescription {
     pub parameter: ParameterSummary,

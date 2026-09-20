@@ -1,6 +1,7 @@
 //! Read-only SCOS MIB snapshots. Parameter, fixed packet and basic command lookups,
 //! fuzzy search, and the table listing.
 #![allow(dead_code)] // Declarations are intentionally unused until implementation tickets.
+
 mod catalog;
 pub mod model;
 mod reader;
@@ -27,6 +28,7 @@ pub enum LoadError {
         directory: PathBuf,
     },
 }
+
 impl std::fmt::Display for LoadError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -41,6 +43,7 @@ impl std::fmt::Display for LoadError {
         }
     }
 }
+
 impl std::error::Error for LoadError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -49,6 +52,7 @@ impl std::error::Error for LoadError {
         }
     }
 }
+
 impl Mib {
     /// Reads supported rows once. Missing support files allow partial results.
     pub fn load(directory: &Path) -> Result<Self, LoadError> {
@@ -56,27 +60,33 @@ impl Mib {
             catalog: catalog::Catalog::new(reader::load(directory)?),
         })
     }
+
     /// Case-sensitive identity; duplicate root rows return Ambiguous.
     pub fn parameter(&self, name: &ParameterName) -> Lookup<ParameterDescription> {
         self.catalog.parameter(name)
     }
+
     pub fn packet(&self, spid: PacketSpid) -> Lookup<PacketDescription> {
         self.catalog.packet(spid)
     }
+
     pub fn command(&self, name: &CommandName) -> Lookup<CommandDescription> {
         self.catalog.command(name)
     }
+
     /// List packet and command definitions by PUS service and optional subtype.
     /// Order: subtype ascending, missing subtype last, kind, identity, source.
     pub fn pus(&self, service: u16, subtype: Option<u16>) -> Vec<Candidate> {
         self.catalog.pus(service, subtype)
     }
+
     /// Case-insensitive names/descriptions and SPIDs. No cap. Blank query is empty.
     /// Rank exact identities, prefixes, then fuzzy matches, names before descriptions.
     /// Ties: parameter/packet/command, identity (SPIDs numeric), source.
     pub fn search(&self, query: &str, scope: SearchScope) -> Vec<Candidate> {
         self.catalog.search(query, scope)
     }
+
     /// Every supported table in code order, whether or not the directory provided it.
     /// Reports come from the one load, so they cannot disagree with the retained rows.
     pub fn tables(&self) -> Vec<TableReport> {

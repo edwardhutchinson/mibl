@@ -8,6 +8,7 @@ use crate::model::{
 use CellType::{Code, Integer, Text};
 
 mod rules;
+
 pub(crate) use rules::{Cca, Ccs, Paf, Pas, Prf, Prv};
 pub(super) use rules::{parse_cca, parse_ccs, parse_paf, parse_pas, parse_prf, parse_prv};
 

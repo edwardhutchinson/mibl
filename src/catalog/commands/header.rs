@@ -1,6 +1,7 @@
 //! Command header expansion: CCF_PKTID names a TCP packet header whose PCDF records
 //! describe the fixed and parameter elements the command source encodes before the
 //! application data. ICD 7.0 sections "Packet headers" define every retained meaning.
+
 use super::super::Catalog;
 use super::super::encoding::{number, unsigned};
 use super::super::resolution::{ambiguity, info, missing, reference, resolve, target};

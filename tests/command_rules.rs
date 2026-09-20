@@ -1,8 +1,10 @@
 mod common;
+
 use common::Fixture;
 use mibl::{Mib, model::*};
 
 const COMMAND: &str = "DEMO_TC\tDemonstration command\t\t\t\tHEADER";
+
 const ELEMENT: &str = "DEMO_TC\tE\t\t8\t0\t0\tARG\tR";
 
 fn command(dir: &Fixture) -> CommandDescription {
@@ -14,6 +16,7 @@ fn command(dir: &Fixture) -> CommandDescription {
     };
     command
 }
+
 fn elements_of(dir: &Fixture) -> Vec<CommandElement> {
     command(dir)
         .arguments
@@ -26,6 +29,7 @@ fn elements_of(dir: &Fixture) -> Vec<CommandElement> {
         })
         .collect()
 }
+
 /// CCF root, one application-data element and its CPC row, with the PRF, CCA and PAF references.
 fn fixture(dir: &Fixture, prfref: &str, ccaref: &str, pafref: &str) {
     dir.write("ccf.dat", COMMAND);
@@ -35,12 +39,14 @@ fn fixture(dir: &Fixture, prfref: &str, ccaref: &str, pafref: &str) {
         &format!("ARG\tArgument\t3\t4\tR\tH\t\tN\t{prfref}\t{ccaref}\t{pafref}"),
     );
 }
+
 fn argument(elements: &[CommandElement], index: usize) -> &CommandArgument {
     match &elements[index] {
         CommandElement::Argument(a) => a,
         other => panic!("expected an argument element: {other:?}"),
     }
 }
+
 /// A declared reference whose target rows never resolved names its table and key.
 fn assert_missing<T: std::fmt::Debug>(info: &Info<T>, table: Table, key: &str) {
     assert!(info.value.is_none(), "{info:?}");
@@ -49,6 +55,7 @@ fn assert_missing<T: std::fmt::Debug>(info: &Info<T>, table: Table, key: &str) {
         "{info:?}"
     );
 }
+
 fn range(value: &AllowedRange) -> (Option<Scalar>, Option<Scalar>) {
     (value.low.value.clone(), value.high.value.clone())
 }

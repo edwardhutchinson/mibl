@@ -16,12 +16,14 @@ pub enum ValueSource {
     },
     Runtime(RuntimeDeclaration),
 }
+
 #[derive(Clone, Debug)]
 pub struct ArgumentValue {
     pub source: ValueSource,
     pub representation: Info<String>,
     pub definition: Definition,
 }
+
 #[derive(Clone, Debug)]
 pub struct AllowedRange {
     pub low: Info<Scalar>,
@@ -29,12 +31,14 @@ pub struct AllowedRange {
     pub representation: Info<String>,
     pub definition: Definition,
 }
+
 #[derive(Clone, Debug)]
 pub struct Alias {
     pub raw: Info<Scalar>,
     pub text: Info<String>,
     pub definition: Definition,
 }
+
 #[derive(Clone, Debug)]
 pub struct ValueRules {
     pub default: Info<ArgumentValue>,
@@ -44,6 +48,7 @@ pub struct ValueRules {
     pub calibrations: Info<Vec<CalibrationAlternative>>,
     pub supporting_definitions: Vec<Definition>,
 }
+
 #[derive(Clone, Debug)]
 pub struct CommandArgument {
     pub reference: Reference,
@@ -55,17 +60,20 @@ pub struct CommandArgument {
     pub location: Location,
     pub rules: ValueRules,
 }
+
 #[derive(Clone, Debug)]
 pub struct FixedArea {
     pub definition: Definition,
     pub location: Location,
     pub value: Info<ArgumentValue>,
 }
+
 #[derive(Clone, Debug)]
 pub enum CommandElement {
     Argument(Box<CommandArgument>),
     Fixed(Box<FixedArea>),
 }
+
 #[derive(Clone, Debug)]
 pub struct HeaderField {
     pub definition: Definition,
@@ -74,11 +82,13 @@ pub struct HeaderField {
     pub value: Info<ArgumentValue>,
     pub field_kind: Info<String>,
 }
+
 #[derive(Clone, Debug)]
 pub struct CommandHeader {
     pub definition: Definition,
     pub fields: Info<Vec<HeaderField>>,
 }
+
 #[derive(Clone, Debug)]
 pub struct CommandDescription {
     pub name: CommandName,

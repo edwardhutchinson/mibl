@@ -12,19 +12,26 @@
 //! `workflows/support.rs`, and each scenario file isolates one area:
 //! `workflows/parameters.rs`, `workflows/packets.rs`, `workflows/commands.rs`,
 //! `workflows/snapshots.rs` and `workflows/cli.rs`.
+
 mod common;
 
 #[path = "workflows/cli.rs"]
 mod cli;
+
 #[path = "workflows/commands.rs"]
 mod commands;
+
 #[path = "workflows/fixture.rs"]
 mod fixture;
+
 #[path = "workflows/packets.rs"]
 mod packets;
+
 #[path = "workflows/parameters.rs"]
 mod parameters;
+
 #[path = "workflows/snapshots.rs"]
 mod snapshots;
+
 #[path = "workflows/support.rs"]
 mod support;

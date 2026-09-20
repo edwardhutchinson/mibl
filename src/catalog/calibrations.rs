@@ -12,6 +12,7 @@ enum Family {
     Numerical,
     Textual,
 }
+
 impl Family {
     fn declared(category: Option<&str>) -> Self {
         if category == Some("S") {
@@ -20,12 +21,14 @@ impl Family {
             Self::Numerical
         }
     }
+
     fn other(self) -> Self {
         match self {
             Self::Numerical => Self::Textual,
             Self::Textual => Self::Numerical,
         }
     }
+
     /// The family a resolved calibration belongs to.
     fn of(form: &Option<CalibrationForm>) -> Self {
         if matches!(form, Some(CalibrationForm::Textual { .. })) {
@@ -34,6 +37,7 @@ impl Family {
             Self::Numerical
         }
     }
+
     /// The family's own reference table, named when the key resolves nowhere.
     fn primary(self) -> Table {
         match self {
@@ -41,6 +45,7 @@ impl Family {
             Self::Textual => Table::Txf,
         }
     }
+
     /// Every table the family may resolve a reference in, in schema order.
     fn tables(self) -> &'static [Table] {
         match self {
@@ -49,6 +54,7 @@ impl Family {
         }
     }
 }
+
 impl Catalog {
     pub(super) fn index_calibrations(&mut self) {
         let (index, records) = (&mut self.supporting, &self.records);
@@ -75,6 +81,7 @@ impl Catalog {
             c.numbr.value.as_deref()
         });
     }
+
     pub(super) fn calibrations(&self, row: &Row<Pcf>) -> Info<Vec<CalibrationAlternative>> {
         let source = &row.definition.source;
         let name = row
@@ -255,6 +262,7 @@ impl Catalog {
         }
         result
     }
+
     /// Every definition `key` names in one calibration namespace, in schema order.
     fn family_values(&self, key: &str, family: Family) -> Vec<Calibration> {
         let mut values = Vec::new();
@@ -326,6 +334,7 @@ impl Catalog {
         }
         values
     }
+
     fn select_calibrations(
         &self,
         key: &str,
@@ -376,6 +385,7 @@ impl Catalog {
             })
             .collect()
     }
+
     fn curve(&self, row: &Row<crate::reader::Caf>) -> Calibration {
         let c = &row.cells;
         let key = c.numbr.value.as_deref().unwrap();
@@ -421,6 +431,7 @@ impl Catalog {
         }
     }
 }
+
 /// MCF and LGF rows declare the same five coefficients in the same format and radix.
 fn coefficients(
     table: Table,

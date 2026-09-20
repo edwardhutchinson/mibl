@@ -8,18 +8,21 @@ pub struct CalibrationAlternative {
     pub selection: Option<Definition>,
     pub calibration: Info<Calibration>,
 }
+
 #[derive(Clone, Debug)]
 pub struct Calibration {
     pub reference: Reference,
     pub definition: Definition,
     pub form: Info<CalibrationForm>,
 }
+
 #[derive(Clone, Debug)]
 pub struct CalibrationPoint {
     pub raw: Info<Scalar>,
     pub engineering: Info<Scalar>,
     pub definition: Definition,
 }
+
 #[derive(Clone, Debug)]
 pub struct TextInterval {
     pub low: Info<Scalar>,
@@ -27,6 +30,7 @@ pub struct TextInterval {
     pub text: Info<String>,
     pub definition: Definition,
 }
+
 #[derive(Clone, Debug)]
 pub enum CalibrationForm {
     Numerical {

@@ -1,4 +1,5 @@
 mod common;
+
 use common::{Fixture, PARAMETER};
 use mibl::{Mib, model::*};
 use std::process::{Command, Output};

@@ -1,4 +1,5 @@
 //! Search retained root definitions without expanding their relationships.
+
 use super::{Catalog, commands::command_candidate, parameters::parameter_candidate};
 use crate::model::*;
 use nucleo_matcher::{

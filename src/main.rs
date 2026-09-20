@@ -1,15 +1,19 @@
 //! Application-owned configuration, tracing, rendering and exit status.
 #![allow(dead_code)] // Other request/response variants belong to later viewer slices.
+
 mod render;
+
 use clap::{Arg, ArgAction, Command};
 use mibl::{LoadError, Mib, model::*};
 use std::{ffi::OsString, io, path::PathBuf, process::ExitCode};
+
 struct Configuration {
     directory: PathBuf,
     debug: bool,
     details: bool,
     request: Request,
 }
+
 enum Request {
     Parameter(ParameterName),
     Packet(PacketSpid),
@@ -18,17 +22,20 @@ enum Request {
     Search { query: String, scope: SearchScope },
     Tables,
 }
+
 enum ConfigurationError {
     InvalidPus,
     MissingMibDir,
     EmptyMibDir,
     Arguments(clap::Error),
 }
+
 enum CliError {
     Configuration(ConfigurationError),
     Load(LoadError),
     Output(io::Error),
 }
+
 fn cli() -> Command {
     Command::new("mibl")
         .version(env!("CARGO_PKG_VERSION"))
@@ -181,6 +188,7 @@ fn configure(
         request,
     })
 }
+
 fn setup_tracing(debug: bool) {
     tracing_subscriber::fmt()
         .with_max_level(if debug {
@@ -193,6 +201,7 @@ fn setup_tracing(debug: bool) {
         .without_time()
         .init();
 }
+
 enum Response {
     Parameter(Lookup<ParameterDescription>),
     Packet(Lookup<PacketDescription>),
@@ -200,6 +209,7 @@ enum Response {
     Candidates(Vec<Candidate>),
     Tables(Vec<TableReport>),
 }
+
 fn query(mib: &Mib, request: &Request) -> Response {
     match request {
         Request::Pus { service, subtype } => Response::Candidates(mib.pus(*service, *subtype)),
@@ -272,6 +282,7 @@ fn report_error(error: &CliError, stderr: &mut dyn io::Write) -> ExitCode {
     let _ = writeln!(stderr, "mibl: {message}");
     ExitCode::from(2)
 }
+
 fn run() -> Result<ExitCode, CliError> {
     let configuration = configure(
         std::env::args_os().skip(1).collect(),
@@ -286,6 +297,7 @@ fn run() -> Result<ExitCode, CliError> {
     io::Write::flush(&mut stdout).map_err(CliError::Output)?;
     Ok(status)
 }
+
 fn main() -> ExitCode {
     match run() {
         Ok(status) => status,

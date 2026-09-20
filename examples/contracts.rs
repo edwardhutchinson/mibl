@@ -1,7 +1,9 @@
 //! Compile-only consumers. main deliberately does not invoke the placeholder operations.
 #![allow(dead_code)]
+
 use mibl::{LoadError, Mib, model::*};
 use std::path::Path;
+
 fn snapshot(directory: &Path) -> Result<ParameterDescription, LoadError> {
     let mib = Mib::load(directory)?;
     let result = mib.parameter(&ParameterName("ZUT00002".into()));
@@ -20,15 +22,18 @@ fn snapshot(directory: &Path) -> Result<ParameterDescription, LoadError> {
         }
     }
 }
+
 fn workflows(mib: &Mib) {
     let _: Lookup<PacketDescription> = mib.packet(PacketSpid(89000));
     let _: Lookup<CommandDescription> = mib.command(&CommandName("S2KTC001".into()));
     let _: Lookup<CommandDescription> = mib.command(&CommandName("S2KTC074".into()));
     let _: Vec<Candidate> = mib.search("mode", SearchScope::All);
 }
+
 fn incomplete(info: Info<Calibration>) {
     let _usable_and_problematic = (info.value, info.problems, info.sources);
 }
+
 fn duplicate(first: Candidate, second: Candidate) -> Lookup<ParameterDescription> {
     Lookup::Ambiguous(AtLeastTwo {
         first: Box::new(first),
@@ -36,6 +41,7 @@ fn duplicate(first: Candidate, second: Candidate) -> Lookup<ParameterDescription
         rest: Vec::new(),
     })
 }
+
 fn parameter_details(value: ParameterDescription) {
     let ParameterDescription {
         parameter,
@@ -55,12 +61,14 @@ fn parameter_details(value: ParameterDescription) {
         }
     }
 }
+
 fn command_details(value: CommandDescription) {
     let _separate_header = value.header;
     if let Some(layout) = value.arguments.value {
         visit(layout);
     }
 }
+
 fn visit(layout: Vec<Layout<CommandElement>>) {
     for node in layout {
         match node {
@@ -95,4 +103,5 @@ fn visit(layout: Vec<Layout<CommandElement>>) {
         }
     }
 }
+
 fn main() {}

@@ -2,6 +2,7 @@
 //! coefficients, or textual intervals, with the recorded source of every point. Evidence
 //! collection registers this summary for a definition; the parameter and command views print it
 //! where a calibration appears.
+
 use mibl::model::*;
 
 use super::format::{default_suffix, scalar, scalar_value, source, string};
@@ -14,6 +15,7 @@ fn default_suffix_any(d: &Definition, names: &[&str]) -> &'static str {
         .find(|suffix| !suffix.is_empty())
         .unwrap_or("")
 }
+
 fn coefficient_line(
     label: &str,
     prefix: &str,
@@ -39,6 +41,7 @@ fn coefficient_line(
             .join(", ")
     )]
 }
+
 pub(super) fn calibration_lines(c: &Calibration) -> Vec<String> {
     match &c.form.value {
         Some(

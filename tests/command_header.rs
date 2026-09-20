@@ -1,8 +1,10 @@
 mod common;
+
 use common::Fixture;
 use mibl::{Mib, model::*};
 
 const COMMAND: &str = "DEMO_TC\tDemonstration command\t\t\t\tHDR";
+
 /// The command's application-data element and its CPC row, present so header checks never
 /// depend on the argument slice.
 const ELEMENT: &str = "DEMO_TC\tE\t\t8\t0\t0\tARG\tR";
