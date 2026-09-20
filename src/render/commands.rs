@@ -1,4 +1,16 @@
-use super::*;
+//! The command view: the command's own summary, its application-data arguments with their
+//! declared rules, and the expanded packet header.
+use mibl::model::*;
+use std::io::{self, Write};
+
+use super::{
+    calibrations::calibration_lines,
+    evidence::View,
+    format::{
+        default_suffix, encoding_kind, field_value, markers, number, position, recorded_text,
+        reference, scalar, scalar_value, source, string, table, text, width,
+    },
+};
 
 pub(crate) fn command(
     c: &CommandDescription,
