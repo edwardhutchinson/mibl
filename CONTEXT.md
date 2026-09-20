@@ -7,6 +7,9 @@ The terminology used to inspect spacecraft monitoring and commanding definitions
 **MIB**:
 The Mission Information Base containing the definitions used to interpret monitoring data and describe commands for a mission.
 
+**MIB table**:
+A source file in a MIB whose rows declare one kind of definition. Its code names the rows' fields, and its file name is that code in lower case with a `.dat` suffix, such as PCF in `pcf.dat`. A table is either a root, whose rows a lookup addresses directly, or a supporting table reached through a root.
+
 **Monitoring parameter**:
 A named quantity described by the MIB, with characteristics such as its type and calibration. Its definition is distinct from where it occurs in a telemetry packet.
 

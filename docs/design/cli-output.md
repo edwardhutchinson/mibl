@@ -389,6 +389,32 @@ Long-text check for #20: use an identity longer than 100 characters, a descripti
 longer than 200, printable non-ASCII text and embedded controls. Verify all text
 survives, controls are escaped, and redirection does not change formatting.
 
+## Table listing sketch
+
+The maintainer agreed on 2026-09-20 that `mibl tables` lists every supported
+table, reading `MIB_DIR` like the other verbs. One aligned row per table carries
+the code, the file name, what the rows declare, the lookup that addresses them
+directly, and the state the load left them in:
+
+```text
+Code  File      Defines                                Lookup     Rows
+CAF   caf.dat   Numerical calibration definitions      -          9
+PCF   pcf.dat   Monitoring parameter definitions       parameter  116
+PID   pid.dat   Telemetry packet definitions           packet       4
+PLF   plf.dat   Parameter occurrence locations         -          unreadable
+VPD   vpd.dat   Variable packet layout elements        -            0
+```
+
+The listing follows the shared accepted rules above: aligned spaces, no tabs, no
+truncation, no colors or pager, identical bytes when redirected. Codes are listed
+in alphabetical order, which is also file-name order. `Lookup` reuses the
+candidate table's `Kind` words for the three root tables and prints `-` for a
+table that is reached only through one of them. `Rows` is the retained row count,
+or `missing` for an absent file, or `unreadable` for a file that cannot be read,
+so a readable table with no usable row answers `0` rather than `missing`. The
+listing takes no identity, so no status-1 or status-3 outcome exists for it, and
+`--details` adds nothing, as it adds nothing to search.
+
 ## Contract amendment and implementation handoff
 
 The [interface contract](../interfaces/contract.md#issue-19-cli-presentation-amendment)

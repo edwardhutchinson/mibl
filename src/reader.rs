@@ -26,6 +26,7 @@ pub(crate) enum TableLoad<T> {
 }
 /// Consumes available supported rows, including supporting-only snapshots.
 pub(crate) struct Records {
+    pub reports: Vec<TableReport>,
     pub pcf: TableLoad<Pcf>,
     pub pid: TableLoad<Pid>,
     pub tpcf: TableLoad<Tpcf>,
@@ -331,31 +332,33 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         directory: directory.to_owned(),
         cause,
     })?;
-    let pcf = read_table(directory, "pcf.dat", parse_pcf);
-    let caf = read_table(directory, "caf.dat", parse_caf);
-    let pid = read_table(directory, "pid.dat", parse_pid);
-    let tpcf = read_table(directory, "tpcf.dat", parse_tpcf);
-    let pic = read_table(directory, "pic.dat", parse_pic);
-    let plf = read_table(directory, "plf.dat", parse_plf);
-    let vpd = read_table(directory, "vpd.dat", parse_vpd);
-    let ccf = read_table(directory, "ccf.dat", parse_ccf);
-    let cdf = read_table(directory, "cdf.dat", parse_cdf);
-    let cpc = read_table(directory, "cpc.dat", parse_cpc);
-    let cap = read_table(directory, "cap.dat", parse_cap);
-    let mcf = read_table(directory, "mcf.dat", parse_mcf);
-    let lgf = read_table(directory, "lgf.dat", parse_lgf);
-    let txf = read_table(directory, "txf.dat", parse_txf);
-    let txp = read_table(directory, "txp.dat", parse_txp);
-    let cur = read_table(directory, "cur.dat", parse_cur);
-    let cca = read_table(directory, "cca.dat", parse_cca);
-    let ccs = read_table(directory, "ccs.dat", parse_ccs);
-    let paf = read_table(directory, "paf.dat", parse_paf);
-    let pas = read_table(directory, "pas.dat", parse_pas);
-    let prf = read_table(directory, "prf.dat", parse_prf);
-    let prv = read_table(directory, "prv.dat", parse_prv);
-    let tcp = read_table(directory, "tcp.dat", parse_tcp);
-    let pcdf = read_table(directory, "pcdf.dat", parse_pcdf);
-    let pcpc = read_table(directory, "pcpc.dat", parse_pcpc);
+    let mut reports = Vec::with_capacity(Table::ALL.len());
+    let pcf = read_table(directory, Table::Pcf, parse_pcf, &mut reports);
+    let caf = read_table(directory, Table::Caf, parse_caf, &mut reports);
+    let pid = read_table(directory, Table::Pid, parse_pid, &mut reports);
+    let tpcf = read_table(directory, Table::Tpcf, parse_tpcf, &mut reports);
+    let pic = read_table(directory, Table::Pic, parse_pic, &mut reports);
+    let plf = read_table(directory, Table::Plf, parse_plf, &mut reports);
+    let vpd = read_table(directory, Table::Vpd, parse_vpd, &mut reports);
+    let ccf = read_table(directory, Table::Ccf, parse_ccf, &mut reports);
+    let cdf = read_table(directory, Table::Cdf, parse_cdf, &mut reports);
+    let cpc = read_table(directory, Table::Cpc, parse_cpc, &mut reports);
+    let cap = read_table(directory, Table::Cap, parse_cap, &mut reports);
+    let mcf = read_table(directory, Table::Mcf, parse_mcf, &mut reports);
+    let lgf = read_table(directory, Table::Lgf, parse_lgf, &mut reports);
+    let txf = read_table(directory, Table::Txf, parse_txf, &mut reports);
+    let txp = read_table(directory, Table::Txp, parse_txp, &mut reports);
+    let cur = read_table(directory, Table::Cur, parse_cur, &mut reports);
+    let cca = read_table(directory, Table::Cca, parse_cca, &mut reports);
+    let ccs = read_table(directory, Table::Ccs, parse_ccs, &mut reports);
+    let paf = read_table(directory, Table::Paf, parse_paf, &mut reports);
+    let pas = read_table(directory, Table::Pas, parse_pas, &mut reports);
+    let prf = read_table(directory, Table::Prf, parse_prf, &mut reports);
+    let prv = read_table(directory, Table::Prv, parse_prv, &mut reports);
+    let tcp = read_table(directory, Table::Tcp, parse_tcp, &mut reports);
+    let pcdf = read_table(directory, Table::Pcdf, parse_pcdf, &mut reports);
+    let pcpc = read_table(directory, Table::Pcpc, parse_pcpc, &mut reports);
+    debug_assert_eq!(reports.len(), Table::ALL.len());
     if cur.rows().is_empty()
         && mcf.rows().is_empty()
         && txp.rows().is_empty()
@@ -387,6 +390,7 @@ pub(crate) fn load(directory: &Path) -> Result<Records, LoadError> {
         });
     }
     Ok(Records {
+        reports: in_code_order(reports),
         pcf,
         pid,
         tpcf,
@@ -422,22 +426,50 @@ impl<T> TableLoad<T> {
             _ => &[],
         }
     }
+    /// What this attempt reported, for the table listing.
+    fn report(&self, table: Table) -> TableReport {
+        TableReport {
+            table,
+            rows: match self {
+                Self::Missing => TableRows::Missing,
+                Self::Unreadable(_) => TableRows::Unreadable,
+                Self::Read { rows } => TableRows::Read { rows: rows.len() },
+            },
+        }
+    }
+}
+
+/// Reports read in the loader's own order, presented in code order.
+/// Every loader read has one report, and `Table::ALL` lists every table once.
+fn in_code_order(mut reports: Vec<TableReport>) -> Vec<TableReport> {
+    let position = |table: Table| {
+        Table::ALL
+            .iter()
+            .position(|t| *t == table)
+            .expect("every loaded table is catalogued")
+    };
+    reports.sort_by_key(|report| position(report.table));
+    reports
 }
 
 fn read_table<T>(
     directory: &Path,
-    file: &str,
+    table: Table,
     parse: fn(&str, Source) -> Result<Row<T>, String>,
+    reports: &mut Vec<TableReport>,
 ) -> TableLoad<T> {
+    let file = table.file();
     let bytes = match std::fs::read(directory.join(file)) {
         Ok(bytes) => bytes,
         Err(cause) => {
             tracing::debug!(file, reason = %cause, "skipped file");
-            return if cause.kind() == io::ErrorKind::NotFound {
+            let skipped = if cause.kind() == io::ErrorKind::NotFound {
                 TableLoad::Missing
             } else {
                 TableLoad::Unreadable(cause)
             };
+            reports.push(skipped.report(table));
+            return skipped;
         }
     };
     let mut rows = Vec::new();
@@ -462,7 +494,9 @@ fn read_table<T>(
         }
     }
     tracing::debug!(file, retained = rows.len(), "loaded table");
-    TableLoad::Read { rows }
+    let loaded = TableLoad::Read { rows };
+    reports.push(loaded.report(table));
+    loaded
 }
 
 #[derive(Clone, Copy)]

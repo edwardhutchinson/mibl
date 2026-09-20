@@ -16,6 +16,7 @@ enum Request {
     Command(CommandName),
     Pus { service: u16, subtype: Option<u16> },
     Search { query: String, scope: SearchScope },
+    Tables,
 }
 enum ConfigurationError {
     InvalidPus,
@@ -56,6 +57,10 @@ fn cli() -> Command {
                         .required(true)
                         .allow_hyphen_values(true),
                 ),
+        )
+        .subcommand(
+            Command::new("tables")
+                .about("List the MIB tables, their file names and what they define"),
         )
         .subcommand(
             Command::new("search")
@@ -145,6 +150,7 @@ fn configure(
         Some(("packet", args)) => Request::Packet(PacketSpid(
             *args.get_one::<u64>("SPID").expect("required SPID"),
         )),
+        Some(("tables", _)) => Request::Tables,
         Some(("search", args)) => Request::Search {
             query: args
                 .get_one::<String>("QUERY")
@@ -192,6 +198,7 @@ enum Response {
     Packet(Lookup<PacketDescription>),
     Command(Lookup<CommandDescription>),
     Candidates(Vec<Candidate>),
+    Tables(Vec<TableReport>),
 }
 fn query(mib: &Mib, request: &Request) -> Response {
     match request {
@@ -200,6 +207,7 @@ fn query(mib: &Mib, request: &Request) -> Response {
         Request::Command(name) => Response::Command(mib.command(name)),
         Request::Packet(spid) => Response::Packet(mib.packet(*spid)),
         Request::Search { query, scope } => Response::Candidates(mib.search(query, *scope)),
+        Request::Tables => Response::Tables(mib.tables()),
     }
 }
 
@@ -235,6 +243,7 @@ fn render(
             return Ok(ExitCode::from(3));
         }
         Response::Candidates(candidates) => render::candidates(candidates.iter(), stdout)?,
+        Response::Tables(reports) => render::tables(reports.iter(), stdout)?,
     }
     Ok(ExitCode::SUCCESS)
 }
