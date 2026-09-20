@@ -41,11 +41,18 @@ Dropped rows are ordinary tracing events, not retained diagnostic records.
 
 ## Reader → catalog table exchanges
 
-All table-specific cell declarations are in `src/reader.rs`; column order,
-optionality and default evidence are in [schema.md](schema.md). `Row<T>` owns
-`Definition` and typed `Info` cells. No table returns a borrowed buffer. The
-catalog never reparses a raw row to discover relationships. Text-valued numeric
-calibration data requires format/radix interpretation in the catalog.
+Each table's typed cells, column schema and parser are colocated in the reader
+module that owns its family: `reader/fields.rs` holds the cell declarations and
+the recorded-field reading they share, `reader/parameters.rs`, `reader/packets.rs`,
+`reader/variable.rs`, `reader/calibrations.rs`, `reader/commands.rs` with
+`reader/commands/rules.rs`, and `reader/header.rs` hold their rows, schemas and
+parsers. `src/reader.rs` describes snapshot loading and keeps only the shared
+`Row<T>`, `TableLoad<T>` and `Records` types, the load and the typed row names it
+re-exports to the catalog. Column order, optionality and default evidence are in
+[schema.md](schema.md). `Row<T>` owns `Definition` and typed `Info` cells. No
+table returns a borrowed buffer. The catalog never reparses a raw row to discover
+relationships. Text-valued numeric calibration data requires format/radix
+interpretation in the catalog.
 
 | Producer tables | Keys and joins consumed by catalog | Public output |
 |---|---|---|
