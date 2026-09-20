@@ -1,4 +1,14 @@
-use super::*;
+//! Telecommand header rows and their schemas.
+
+use super::Row;
+use super::fields::{CellType, Column, integer_cell, parse_definition, text_cell};
+use crate::model::{Info, Source};
+use CellType::{Code, Integer, Text};
+
+pub(crate) struct Tcp {
+    pub id: Info<String>,
+    pub desc: Info<String>,
+}
 
 const TCP: &[Column] = &[
     Column {
@@ -14,6 +24,7 @@ const TCP: &[Column] = &[
         default: None,
     },
 ];
+
 pub(super) fn parse_tcp(text: &str, source: Source) -> Result<Row<Tcp>, String> {
     let definition = parse_definition(text, source, TCP)?;
     let cells = Tcp {
@@ -21,6 +32,17 @@ pub(super) fn parse_tcp(text: &str, source: Source) -> Result<Row<Tcp>, String> 
         desc: text_cell(&definition, 1),
     };
     Ok(Row { definition, cells })
+}
+
+pub(crate) struct Pcdf {
+    pub tcname: Info<String>,
+    pub desc: Info<String>,
+    pub r#type: Info<String>,
+    pub len: Info<i64>,
+    pub bit: Info<i64>,
+    pub pname: Info<String>,
+    pub value: Info<String>,
+    pub radix: Info<String>,
 }
 
 /// ICD 7.0 gives the header element types: `F` fixed area, `A` APID, `T` service type,
@@ -76,6 +98,7 @@ const PCDF: &[Column] = &[
         default: Some("H"),
     },
 ];
+
 pub(super) fn parse_pcdf(text: &str, source: Source) -> Result<Row<Pcdf>, String> {
     let definition = parse_definition(text, source, PCDF)?;
     let cells = Pcdf {
@@ -89,6 +112,12 @@ pub(super) fn parse_pcdf(text: &str, source: Source) -> Result<Row<Pcdf>, String
         radix: text_cell(&definition, 7),
     };
     Ok(Row { definition, cells })
+}
+
+pub(crate) struct Pcpc {
+    pub pname: Info<String>,
+    pub desc: Info<String>,
+    pub code: Info<String>,
 }
 
 /// ICD 7.0 declares the code that PCDF_VALUE is written in: `I` signed integer and
@@ -113,6 +142,7 @@ const PCPC: &[Column] = &[
         default: Some("U"),
     },
 ];
+
 pub(super) fn parse_pcpc(text: &str, source: Source) -> Result<Row<Pcpc>, String> {
     let definition = parse_definition(text, source, PCPC)?;
     let cells = Pcpc {
