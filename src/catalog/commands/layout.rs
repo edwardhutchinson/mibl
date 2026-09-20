@@ -1,7 +1,8 @@
 //! The declared CDF layout: unexpanded positions, nested groups and the runtime
 //! repetition each group declares.
 
-use super::super::{Catalog, missing, reference, resolve};
+use super::super::Catalog;
+use super::super::resolution::{missing, reference, resolve};
 use super::cdf_target;
 use crate::model::{
     ArgumentValue, CommandArgument, CommandElement, Dependency, Info, Layout, Location, Problem,

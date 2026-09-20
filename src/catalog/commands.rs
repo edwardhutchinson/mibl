@@ -1,7 +1,7 @@
 //! Command lookup and indexing, with the helpers its layout, argument, rule and
 //! header modules share.
 
-use super::{Catalog, RowId, index_rows, info, unsigned};
+use super::{Catalog, RowId, encoding::unsigned, index_rows, resolution::info};
 use crate::model::{
     AtLeastTwo, Candidate, CommandDescription, CommandName, Identity, Lookup, NotFoundReason,
     Reference, Table, Target,

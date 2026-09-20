@@ -1,7 +1,9 @@
 //! Element and argument construction: the declared type, encoding, position and
 //! supplied value of one CDF application-data element.
 
-use super::super::{Catalog, encoded_bits, info, resolve, unavailable, unsigned};
+use super::super::Catalog;
+use super::super::encoding::{encoded_bits, unsigned};
+use super::super::resolution::{info, resolve, unavailable};
 use super::cdf_target;
 use super::rules::ArgumentRules;
 use crate::model::{
