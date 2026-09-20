@@ -1,4 +1,26 @@
-use super::*;
+//! Variable telemetry packet layout rows and their schema.
+
+use super::Row;
+use super::fields::{CellType, Column, cell, integer_cell, parse_definition, text_cell};
+use crate::model::{Info, ParameterName, Scalar, Source};
+use CellType::{Code, Integer, Text};
+
+pub(crate) struct Vpd {
+    pub tpsd: Info<i64>,
+    pub pos: Info<i64>,
+    pub name: Info<ParameterName>,
+    pub grpsize: Info<i64>,
+    pub fixrep: Info<i64>,
+    pub choice: Info<String>,
+    pub pidref: Info<String>,
+    pub disdesc: Info<String>,
+    pub width: Info<i64>,
+    pub justify: Info<String>,
+    pub newline: Info<String>,
+    pub dchar: Info<i64>,
+    pub form: Info<String>,
+    pub offset: Info<i64>,
+}
 
 const VPD: &[Column] = &[
     Column {
@@ -86,6 +108,7 @@ const VPD: &[Column] = &[
         default: Some("0"),
     },
 ];
+
 pub(super) fn parse_vpd(text: &str, source: Source) -> Result<Row<Vpd>, String> {
     let definition = parse_definition(text, source, VPD)?;
     let cells = Vpd {
