@@ -17,7 +17,13 @@ With Rust installed, run from this repository and point `MIB_DIR` at your MIB di
 
 ```sh
 export MIB_DIR=/path/to/mib
+cargo run -- packet 89000
 cargo run -- parameter TEMP
+cargo run -- command DEMO_TC
+cargo run -- search mode --scope all
+cargo run -- pus 3,25
+cargo run -- tables
+cargo run -- --debug parameter TEMP
 ```
 
 Replace the example names and packet SPID with identities from your MIB.
@@ -26,7 +32,8 @@ source evidence, or `--debug` for diagnostics. Run `cargo run -- --help` for opt
 
 ## Commands
 
-Run these with `cargo run -- <command>` from the repository.
+Run these with `cargo run -- <command>` from the repository, or run `cargo install` to
+execute as `mibl <command>`.
 
 ### `parameter NAME`
 
