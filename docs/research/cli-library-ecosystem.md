@@ -51,7 +51,7 @@ python -c "import sys, json; data = json.load(sys.stdin); ..." < <(mibl --json p
   - **Unlike `clap_derive v4.6` (which pulls `syn v3`), `serde` does NOT cause a `syn` version split!** Clean compilation time increases by only ~1.4s, and incremental compilation remains instantaneous (~0.02s).
 - **Runtime Speed**: `serde` generates specialized, zero-reflection serialization code. Serializing a full telemetry packet description with hundreds of occurrences takes **<150 microseconds**.
 - **Developer Overhead**:
-  - Add `#[derive(serde::Serialize)]` to the public data models in [`src/model.rs`](../../src/model.rs) (`ParameterDescription`, `PacketDescription`, `Info<T>`, `Problem`, `Definition`, `RecordedField`, etc.).
+  - Add `#[derive(serde::Serialize)]` to the public data models in the private modules under [`src/model/`](../../src/model) (`ParameterDescription`, `PacketDescription`, `Info<T>`, `Problem`, `Definition`, `RecordedField`, etc.), which [`src/model.rs`](../../src/model.rs) re-exports.
   - In `src/main.rs`:
     ```rust
     if configuration.json {
@@ -146,7 +146,7 @@ The interface contract ([`docs/interfaces/contract.md#representative-cross-check
 flowchart TD
     Current["Current Slice: Parameter & Packet"] --> Step1["Phase 1: Add Structured Output (--json)
     • Add serde + serde_json
-    • Derive Serialize on src/model.rs
+    • Derive Serialize on the types in src/model/
     • Fast builds, no syn version split"]
     Step1 --> Step2["Phase 2: Search Slice (mibl search)
     • Add nucleo-matcher (SIMD fuzzy ranking)
