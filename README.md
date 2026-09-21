@@ -35,38 +35,50 @@ source evidence, or `--debug` for diagnostics. Run `cargo run -- --help` for opt
 Run these with `cargo run -- <command>` from the repository, or run `cargo install` to
 execute as `mibl <command>`.
 
-### `parameter NAME`
+### Monitoring parameters
+
+`mibl parameter NAME`
 
 Look up a monitoring parameter by its exact, case-sensitive name, such as
 `parameter TEMP`. Shows its type, units, calibration definitions, and occurrences
 within telemetry packets.
 
-### `packet SPID`
+### Telemetry packets
+
+`mibl packet SPID`
 
 Inspect a telemetry packet definition by its numeric SPID, such as `packet 89000`.
 Shows identification fields and the fixed or variable layout, including parameter
 locations, widths, and repetition groups.
 
-### `command NAME`
+### Telecommands
+
+`mibl command NAME`
 
 Look up a telecommand by its exact, case-sensitive name, such as `command DEMO_TC`.
 Shows arguments, defaults, allowed ranges, aliases, conversions, and nested
 repetitions, with packet header fields in a separate section.
 
-### `search QUERY`
+### Search
+
+`mibl search QUERY`
 
 Fuzzy-search names, descriptions, and packet SPIDs, such as `search mode`.
 Returns a ranked table of matching definitions with identities, PUS coordinates,
 descriptions, and source locations. Narrow results with
 `--scope parameters|packets|commands|all`.
 
-### `pus SERVICE[,SUBTYPE]`
+### PUS services
+
+`mibl pus SERVICE[,SUBTYPE]`
 
 Find telemetry packets and telecommands for a PUS service. Use `pus 3` for the
 whole service or `pus 3,25` for one subtype. Shows a table of matching definitions
 with identities, PUS coordinates, names, descriptions, and source locations.
 
-### `tables`
+### MIB tables
+
+`mibl tables`
 
 List every supported MIB table with its file name, purpose, and direct lookup
 command where available. Shows the loaded row count or whether the file is
