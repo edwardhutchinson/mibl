@@ -1,21 +1,47 @@
 //! Ratatui rendering, with navigation state independent of a real terminal.
-use super::{App, Filter, InputKind};
+use super::{App, Filter, InputKind, document::DocumentKind};
 use mibl::model::*;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout},
-    style::{Color, Style},
-    widgets::{Block, List, ListItem, Paragraph},
+    style::{Color, Modifier, Style},
+    widgets::{Block, List, ListItem, Paragraph, Tabs},
 };
 
 impl App<'_> {
     pub(crate) fn draw(&mut self, frame: &mut Frame) {
-        let [heading, body, help] = Layout::vertical([
+        let [tabs, heading, body, help] = Layout::vertical([
+            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Min(1),
             Constraint::Length(3),
         ])
         .areas(frame.area());
+        let document_kind = self.document.as_ref().map(|document| &document.kind);
+        let scope = match document_kind {
+            Some(DocumentKind::Definition(scope)) => Some(*scope),
+            Some(DocumentKind::Tables | DocumentKind::Help) => None,
+            None if matches!(self.filter, Filter::Pus { .. }) => None,
+            None => Some(self.scope),
+        };
+        let selected = match (document_kind, scope) {
+            (Some(DocumentKind::Tables), _) => Some(3),
+            (_, Some(SearchScope::Packets)) => Some(0),
+            (_, Some(SearchScope::Parameters)) => Some(1),
+            (_, Some(SearchScope::Commands)) => Some(2),
+            _ => None,
+        };
+        frame.render_widget(
+            Tabs::new(["1 Packets", "2 Parameters", "3 Commands", "t Tables"])
+                .select(selected)
+                .highlight_style(
+                    Style::default()
+                        .fg(Color::Black)
+                        .bg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            tabs,
+        );
         let title = match &self.filter {
             Filter::Inventory => format!("{:?}", self.scope),
             Filter::Search(query) => format!("Search {:?}: {query}", self.scope),
@@ -24,13 +50,12 @@ impl App<'_> {
                 subtype.map(|s| format!(",{s}")).unwrap_or_default()
             ),
         };
-        frame.render_widget(
-            Paragraph::new(format!(
-                "mibl | {title} | {} definitions",
-                self.candidates.len()
-            )),
-            heading,
-        );
+        let status = match document_kind {
+            Some(DocumentKind::Tables) => "Supported-table load reports".into(),
+            Some(DocumentKind::Help) => "Keyboard help".into(),
+            _ => format!("mibl | {title} | {} definitions", self.candidates.len()),
+        };
+        frame.render_widget(Paragraph::new(status), heading);
         let block = Block::bordered();
         let inner = block.inner(body);
         self.page_height = usize::from(inner.height).max(1);

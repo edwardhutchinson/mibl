@@ -35,7 +35,9 @@ source evidence, or `--debug` for diagnostics. Run `cargo run -- --help` for opt
 
 Run `mibl` without a subcommand in an interactive terminal. It loads `MIB_DIR`
 once; restart to reload changes. Definitions always include recorded fields and
-problem evidence. `--debug` diagnostics apply to CLI subcommands.
+problem evidence. The top tabs highlight the displayed definition kind or table
+reports. Use `1`, `2`, `3`, or `t` to switch views. `--debug` diagnostics apply to
+CLI subcommands.
 
 | Key | Action |
 | --- | --- |

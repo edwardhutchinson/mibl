@@ -256,7 +256,7 @@ fn duplicate_selection_never_chooses_one_root_and_long_lists_keep_selection_visi
     key(&mut app, KeyCode::Home);
     key(&mut app, KeyCode::PageDown);
     key(&mut app, KeyCode::Enter);
-    assert!(screen(&mut app).contains("Parameter PARAM_024"));
+    assert!(screen(&mut app).contains("Parameter PARAM_023"));
 }
 
 #[test]
@@ -350,4 +350,44 @@ fn inventory_escapes_recorded_control_characters() {
     let mut app = tui::App::new(&mib);
     key(&mut app, KeyCode::Char('2'));
     assert!(screen(&mut app).contains("Mode\\u{1b}[31m"));
+}
+
+#[test]
+fn top_tabs_identify_lists_definitions_and_table_reports() {
+    let dir = crate::workflow_fixture::combined();
+    let mib = Mib::load(dir.path()).unwrap();
+    let mut app = tui::App::new(&mib);
+    let active_tab = |app: &mut tui::App<'_>| {
+        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+        terminal.draw(|frame| app.draw(frame)).unwrap();
+        let row = &terminal.backend().buffer().content[..120];
+        let labels: String = row.iter().map(|cell| cell.symbol()).collect();
+        for label in ["Packets", "Parameters", "Commands", "Tables"] {
+            assert!(labels.contains(label), "missing {label} in {labels}");
+        }
+        row.iter()
+            .filter(|cell| cell.bg == ratatui::style::Color::Cyan)
+            .map(|cell| cell.symbol())
+            .collect::<String>()
+            .trim()
+            .to_owned()
+    };
+    assert_eq!(active_tab(&mut app), "1 Packets");
+    key(&mut app, KeyCode::Char('2'));
+    assert_eq!(active_tab(&mut app), "2 Parameters");
+    key(&mut app, KeyCode::Enter);
+    assert_eq!(active_tab(&mut app), "2 Parameters");
+    key(&mut app, KeyCode::Char('3'));
+    assert_eq!(active_tab(&mut app), "3 Commands");
+    key(&mut app, KeyCode::Char('t'));
+    assert_eq!(active_tab(&mut app), "t Tables");
+    assert!(screen(&mut app).contains("Supported-table load reports"));
+    key(&mut app, KeyCode::Esc);
+    assert_eq!(active_tab(&mut app), "3 Commands");
+    key(&mut app, KeyCode::Char('/'));
+    key(&mut app, KeyCode::Tab); // Search all kinds.
+    type_text(&mut app, "DEMO_MODE");
+    assert_eq!(active_tab(&mut app), "");
+    key(&mut app, KeyCode::Enter);
+    assert_eq!(active_tab(&mut app), "2 Parameters");
 }

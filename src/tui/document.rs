@@ -4,7 +4,14 @@ use crossterm::event::KeyCode;
 use mibl::{Mib, model::*};
 use std::io::{self, Write};
 
+pub(super) enum DocumentKind {
+    Definition(SearchScope),
+    Tables,
+    Help,
+}
+
 pub(super) struct Document {
+    pub kind: DocumentKind,
     pub lines: Vec<String>,
     pub top: usize,
     pub left: usize,
@@ -20,21 +27,27 @@ impl Document {
             Identity::Packet(spid) => definition(mib.packet(*spid), render::packet, &mut out)?,
             Identity::Command(name) => definition(mib.command(name), render::command, &mut out)?,
         }
-        Ok(Self::from_bytes(out))
+        let scope = match identity {
+            Identity::Packet(_) => SearchScope::Packets,
+            Identity::Parameter(_) => SearchScope::Parameters,
+            Identity::Command(_) => SearchScope::Commands,
+        };
+        Ok(Self::from_bytes(out, DocumentKind::Definition(scope)))
     }
 
     pub fn help() -> Self {
-        Self::from_bytes(b"Keyboard controls\n\n1: packets\n2: parameters\n3: commands\nTab: next list or search scope\n/: search, Tab chooses scope\np: PUS service[,subtype]\nt: supported-table load reports\nEnter: inspect selected identity\nEsc: cancel input / return to list\nUp/Down or j/k: select / scroll\nPageUp/PageDown: move one page\nHome/End: first / last page\nLeft/Right or h/l: scroll wide text\n?: this help\nq: quit outside text input\nCtrl-C: quit from any screen\n".to_vec())
+        Self::from_bytes(b"Keyboard controls\n\n1: packets\n2: parameters\n3: commands\nTab: next list or search scope\n/: search, Tab chooses scope\np: PUS service[,subtype]\nt: supported-table load reports\nEnter: inspect selected identity\nEsc: cancel input / return to list\nUp/Down or j/k: select / scroll\nPageUp/PageDown: move one page\nHome/End: first / last page\nLeft/Right or h/l: scroll wide text\n?: this help\nq: quit outside text input\nCtrl-C: quit from any screen\n".to_vec(), DocumentKind::Help)
     }
 
     pub fn tables(mib: &Mib) -> io::Result<Self> {
         let mut out = Vec::new();
         render::tables(mib.tables().iter(), &mut out)?;
-        Ok(Self::from_bytes(out))
+        Ok(Self::from_bytes(out, DocumentKind::Tables))
     }
 
-    fn from_bytes(bytes: Vec<u8>) -> Self {
+    fn from_bytes(bytes: Vec<u8>, kind: DocumentKind) -> Self {
         Self {
+            kind,
             lines: String::from_utf8(bytes)
                 .expect("formatters write UTF-8")
                 .lines()
