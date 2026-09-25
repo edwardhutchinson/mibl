@@ -36,7 +36,7 @@ impl Document {
     }
 
     pub fn help() -> Self {
-        Self::from_bytes(b"Keyboard controls\n\n1: packets\n2: parameters\n3: commands\nTab: next list or search scope\n/: search, Tab chooses scope\np: PUS service[,subtype]\nt: supported-table load reports\nEnter: inspect selected identity\nEsc: cancel input / return to list\nUp/Down or j/k: select / scroll\nPageUp/PageDown: move one page\nHome/End: first / last page\nLeft/Right or h/l: scroll wide text\n?: this help\nq: quit outside text input\nCtrl-C: quit from any screen\n".to_vec(), DocumentKind::Help)
+        Self::from_bytes(b"Keyboard controls\n\nP / 1: packets\np / 2: parameters\nc / C / 3: commands\nTab: next list or search scope\n/: search, Tab chooses scope\nf: PUS service[,subtype]\nt: supported-table load reports\nEnter: inspect selected identity\nEsc: cancel input / return to list\nUp/Down or j/k: select / scroll\nPageUp/PageDown: move one page\nHome/End: first / last page\nLeft/Right or h/l: scroll wide text\n?: this help\nq: quit outside text input\nCtrl-C: quit from any screen\n".to_vec(), DocumentKind::Help)
     }
 
     pub fn tables(mib: &Mib) -> io::Result<Self> {

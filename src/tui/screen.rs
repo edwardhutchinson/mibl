@@ -32,7 +32,7 @@ impl App<'_> {
             _ => None,
         };
         frame.render_widget(
-            Tabs::new(["1 Packets", "2 Parameters", "3 Commands", "t Tables"])
+            Tabs::new(["P Packets", "p Parameters", "c Commands", "t Tables"])
                 .select(selected)
                 .highlight_style(
                     Style::default()
@@ -115,6 +115,6 @@ impl App<'_> {
             frame.render_widget(Paragraph::new(format!("{prompt}: {}\nEnter apply  Esc cancel  Backspace delete  Tab search scope  Ctrl-C quit\n{}", input.value, input.error.unwrap_or(""))), help);
             return;
         }
-        frame.render_widget(Paragraph::new("? help  1 packets  2 parameters  3 commands  Tab scope  / search  p PUS  t tables\nEnter inspect  Esc list  ↑/↓ j/k move  PgUp/PgDn page  Home/End\n←/→ h/l scroll wide text  q / Ctrl-C quit"), help);
+        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab scope  / search  f PUS  t tables\nEnter inspect  Esc list  ↑/↓ j/k move  PgUp/PgDn page  Home/End\n←/→ h/l scroll wide text  q / Ctrl-C quit"), help);
     }
 }

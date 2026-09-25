@@ -144,7 +144,7 @@ impl<'a> App<'a> {
                     error: None,
                 })
             }
-            KeyCode::Char('p') => {
+            KeyCode::Char('f') => {
                 self.input = Some(Input {
                     kind: InputKind::Pus,
                     value: String::new(),
@@ -153,9 +153,9 @@ impl<'a> App<'a> {
             }
             KeyCode::Char('?') => self.document = Some(Document::help()),
             KeyCode::Char('t') => self.document = Some(Document::tables(self.mib)?),
-            KeyCode::Char('1') => self.browse(SearchScope::Packets),
-            KeyCode::Char('2') => self.browse(SearchScope::Parameters),
-            KeyCode::Char('3') => self.browse(SearchScope::Commands),
+            KeyCode::Char('1' | 'P') => self.browse(SearchScope::Packets),
+            KeyCode::Char('2' | 'p') => self.browse(SearchScope::Parameters),
+            KeyCode::Char('3' | 'c' | 'C') => self.browse(SearchScope::Commands),
             KeyCode::Tab if matches!(self.filter, Filter::Search(_)) => {
                 self.scope = next_scope(self.scope);
                 self.refresh();

@@ -36,15 +36,15 @@ source evidence, or `--debug` for diagnostics. Run `cargo run -- --help` for opt
 Run `mibl` without a subcommand in an interactive terminal. It loads `MIB_DIR`
 once; restart to reload changes. Definitions always include recorded fields and
 problem evidence. The top tabs highlight the displayed definition kind or table
-reports. Use `1`, `2`, `3`, or `t` to switch views. `--debug` diagnostics apply to
+reports. Use `P`, `p`, `c` or `C`, or `t` to switch views. `--debug` diagnostics apply to
 CLI subcommands.
 
 | Key | Action |
 | --- | --- |
-| `1`, `2`, `3` | Browse packets, parameters, commands |
+| `P`, `p`, `c`/`C` | Browse packets, parameters, commands; `1`/`2`/`3` also work |
 | `Tab` | Cycle definition lists, or search scopes while searching |
 | `/` | Enter a search query; `Enter` applies it, `Esc` cancels |
-| `p` | Enter a PUS service or service,subtype filter |
+| `f` | Enter a PUS service or service,subtype filter |
 | `t` | Supported-table load reports |
 | `Enter` | Inspect the selected identity |
 | `Esc` | Return to the list |

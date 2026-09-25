@@ -108,19 +108,19 @@ fn pus_filter_validation_and_table_reports_are_keyboard_accessible() {
     dir.write("pcf.dat", "");
     let mib = Mib::load(dir.path()).unwrap();
     let mut app = tui::App::new(&mib);
-    key(&mut app, KeyCode::Char('p'));
+    key(&mut app, KeyCode::Char('f'));
     type_text(&mut app, "3,25");
     let text = screen(&mut app);
     assert!(
         text.contains("PUS 3,25") && text.contains("89000") && !text.contains("89001"),
         "{text}"
     );
-    key(&mut app, KeyCode::Char('p'));
+    key(&mut app, KeyCode::Char('f'));
     type_text(&mut app, "-1");
     assert!(screen(&mut app).contains("unsigned integers"));
     key(&mut app, KeyCode::Esc);
     assert!(screen(&mut app).contains("PUS 3,25"));
-    key(&mut app, KeyCode::Char('p'));
+    key(&mut app, KeyCode::Char('f'));
     type_text(&mut app, "3");
     assert!(screen(&mut app).contains("89001"));
     key(&mut app, KeyCode::Char('t'));
@@ -286,7 +286,7 @@ fn filters_distinguish_unavailable_roots_from_no_matching_definitions() {
     key(&mut app, KeyCode::Char('/'));
     type_text(&mut app, "missing");
     assert!(screen(&mut app).contains("Definitions unavailable"));
-    key(&mut app, KeyCode::Char('p'));
+    key(&mut app, KeyCode::Char('f'));
     type_text(&mut app, "3");
     assert!(screen(&mut app).contains("Definitions unavailable"));
     key(&mut app, KeyCode::Char('2'));
@@ -372,22 +372,26 @@ fn top_tabs_identify_lists_definitions_and_table_reports() {
             .trim()
             .to_owned()
     };
-    assert_eq!(active_tab(&mut app), "1 Packets");
-    key(&mut app, KeyCode::Char('2'));
-    assert_eq!(active_tab(&mut app), "2 Parameters");
+    assert_eq!(active_tab(&mut app), "P Packets");
+    key(&mut app, KeyCode::Char('p'));
+    assert_eq!(active_tab(&mut app), "p Parameters");
     key(&mut app, KeyCode::Enter);
-    assert_eq!(active_tab(&mut app), "2 Parameters");
-    key(&mut app, KeyCode::Char('3'));
-    assert_eq!(active_tab(&mut app), "3 Commands");
+    assert_eq!(active_tab(&mut app), "p Parameters");
+    key(&mut app, KeyCode::Char('c'));
+    assert_eq!(active_tab(&mut app), "c Commands");
+    key(&mut app, KeyCode::Char('P'));
+    assert_eq!(active_tab(&mut app), "P Packets");
+    key(&mut app, KeyCode::Char('C'));
+    assert_eq!(active_tab(&mut app), "c Commands");
     key(&mut app, KeyCode::Char('t'));
     assert_eq!(active_tab(&mut app), "t Tables");
     assert!(screen(&mut app).contains("Supported-table load reports"));
     key(&mut app, KeyCode::Esc);
-    assert_eq!(active_tab(&mut app), "3 Commands");
+    assert_eq!(active_tab(&mut app), "c Commands");
     key(&mut app, KeyCode::Char('/'));
     key(&mut app, KeyCode::Tab); // Search all kinds.
     type_text(&mut app, "DEMO_MODE");
     assert_eq!(active_tab(&mut app), "");
     key(&mut app, KeyCode::Enter);
-    assert_eq!(active_tab(&mut app), "2 Parameters");
+    assert_eq!(active_tab(&mut app), "p Parameters");
 }
