@@ -87,6 +87,13 @@ impl Mib {
         self.catalog.search(query, scope)
     }
 
+    /// All retained roots in scope, including duplicates. Order: kind, identity
+    /// (numeric SPIDs), then source. Empty means no usable roots in this scope.
+    /// Selecting a candidate still uses exact lookup and can return Ambiguous.
+    pub fn inventory(&self, scope: SearchScope) -> Vec<Candidate> {
+        self.catalog.inventory(scope)
+    }
+
     /// Every supported table in code order, whether or not the directory provided it.
     /// Reports come from the one load, so they cannot disagree with the retained rows.
     pub fn tables(&self) -> Vec<TableReport> {

@@ -10,7 +10,7 @@ use std::{
 };
 use unicode_width::UnicodeWidthStr;
 
-pub(super) fn text(s: &str) -> String {
+pub(crate) fn text(s: &str) -> String {
     s.chars()
         .flat_map(|c| {
             if c.is_control() {

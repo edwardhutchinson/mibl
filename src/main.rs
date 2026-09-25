@@ -2,10 +2,23 @@
 #![allow(dead_code)] // Other request/response variants belong to later viewer slices.
 
 mod render;
+mod tui;
+
+#[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+mod common;
+#[cfg(test)]
+#[path = "../tests/workflows/fixture.rs"]
+mod workflow_fixture;
 
 use clap::{Arg, ArgAction, Command};
 use mibl::{LoadError, Mib, model::*};
-use std::{ffi::OsString, io, path::PathBuf, process::ExitCode};
+use std::{
+    ffi::OsString,
+    io::{self, IsTerminal},
+    path::PathBuf,
+    process::ExitCode,
+};
 
 struct Configuration {
     directory: PathBuf,
@@ -15,6 +28,7 @@ struct Configuration {
 }
 
 enum Request {
+    Tui,
     Parameter(ParameterName),
     Packet(PacketSpid),
     Command(CommandName),
@@ -34,13 +48,14 @@ enum CliError {
     Configuration(ConfigurationError),
     Load(LoadError),
     Output(io::Error),
+    Terminal(io::Error),
+    Noninteractive,
 }
 
 fn cli() -> Command {
     Command::new("mibl")
         .version(env!("CARGO_PKG_VERSION"))
         .about("Inspect SCOS MIB definitions")
-        .subcommand_required(true)
         .args_override_self(true)
         .arg(
             Arg::new("debug")
@@ -175,7 +190,8 @@ fn configure(
                 _ => unreachable!("clap validates scope"),
             },
         },
-        _ => unreachable!("clap requires a declared subcommand"),
+        None => Request::Tui,
+        _ => unreachable!("clap validates subcommands"),
     };
     let directory = mib_dir.ok_or(ConfigurationError::MissingMibDir)?;
     if directory.is_empty() {
@@ -212,6 +228,7 @@ enum Response {
 
 fn query(mib: &Mib, request: &Request) -> Response {
     match request {
+        Request::Tui => unreachable!("interactive requests use the TUI"),
         Request::Pus { service, subtype } => Response::Candidates(mib.pus(*service, *subtype)),
         Request::Parameter(name) => Response::Parameter(mib.parameter(name)),
         Request::Command(name) => Response::Command(mib.command(name)),
@@ -276,6 +293,10 @@ fn report_error(error: &CliError, stderr: &mut dyn io::Write) -> ExitCode {
                 Err(error) => report_error(&CliError::Output(error), stderr),
             };
         }
+        CliError::Noninteractive => {
+            "bare mibl requires an interactive terminal; use a CLI subcommand".into()
+        }
+        CliError::Terminal(error) => format!("terminal error: {error}"),
         CliError::Load(error) => error.to_string(),
         CliError::Output(error) => format!("cannot write output: {error}"),
     };
@@ -289,8 +310,17 @@ fn run() -> Result<ExitCode, CliError> {
         std::env::var_os("MIB_DIR"),
     )
     .map_err(CliError::Configuration)?;
-    setup_tracing(configuration.debug);
+    let interactive = matches!(configuration.request, Request::Tui);
+    if interactive && !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
+        return Err(CliError::Noninteractive);
+    }
+    // Diagnostics written during drawing would corrupt the alternate screen.
+    setup_tracing(configuration.debug && !interactive);
     let mib = Mib::load(&configuration.directory).map_err(CliError::Load)?;
+    if interactive {
+        tui::run(&mib).map_err(CliError::Terminal)?;
+        return Ok(ExitCode::SUCCESS);
+    }
     let response = query(&mib, &configuration.request);
     let mut stdout = io::stdout().lock();
     let status = render(&response, configuration.details, &mut stdout).map_err(CliError::Output)?;

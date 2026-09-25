@@ -208,3 +208,27 @@ fn non_unicode_lookup_arguments_are_rejected() {
         assert!(output.stdout.is_empty() && !output.stderr.is_empty());
     }
 }
+
+#[test]
+fn bare_noninteractive_startup_requires_a_subcommand_and_preserves_configuration_errors() {
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    let output = run(&dir, &[]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("interactive terminal; use a CLI subcommand")
+    );
+    for (value, expected) in [(None, "MIB_DIR is not set"), (Some(""), "MIB_DIR is empty")] {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_mibl"));
+        command.env_remove("MIB_DIR");
+        if let Some(value) = value {
+            command.env("MIB_DIR", value);
+        }
+        let output = command.output().unwrap();
+        assert_eq!(output.status.code(), Some(2));
+        assert!(String::from_utf8(output.stderr).unwrap().contains(expected));
+    }
+}

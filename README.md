@@ -1,6 +1,6 @@
 # mibl
 
-A read-only Rust library and CLI for exploring SCOS-2000 Mission Information Bases
+A read-only Rust library, CLI, and terminal browser for exploring SCOS-2000 Mission Information Bases
 (MIBs), the definitions used to interpret spacecraft telemetry and describe commands.
 
 - Inspect monitoring parameters, calibrations, and fixed or variable telemetry layouts.
@@ -17,6 +17,7 @@ With Rust installed, run from this repository and point `MIB_DIR` at your MIB di
 
 ```sh
 export MIB_DIR=/path/to/mib
+cargo run
 cargo run -- packet 89000
 cargo run -- parameter TEMP
 cargo run -- command DEMO_TC
@@ -29,6 +30,31 @@ cargo run -- --debug parameter TEMP
 Replace the example names and packet SPID with identities from your MIB.
 Output defaults to a compact overview. Add `--details` for recorded fields and
 source evidence, or `--debug` for diagnostics. Run `cargo run -- --help` for options.
+
+## Terminal browser
+
+Run `mibl` without a subcommand in an interactive terminal. It loads `MIB_DIR`
+once; restart to reload changes. Definitions always include recorded fields and
+problem evidence. `--debug` diagnostics apply to CLI subcommands.
+
+| Key | Action |
+| --- | --- |
+| `1`, `2`, `3` | Browse packets, parameters, commands |
+| `Tab` | Cycle definition lists, or search scopes while searching |
+| `/` | Enter a search query; `Enter` applies it, `Esc` cancels |
+| `p` | Enter a PUS service or service,subtype filter |
+| `t` | Supported-table load reports |
+| `Enter` | Inspect the selected identity |
+| `Esc` | Return to the list |
+| `↑`/`↓`, `j`/`k` | Select entries or scroll a definition |
+| `PageUp`/`PageDown`, `Home`/`End` | Move through long lists and definitions |
+| `←`/`→`, `h`/`l` | Scroll wide definition tables horizontally |
+| `?` | Scrollable keyboard help |
+| `q`, `Ctrl-C` | Quit, with `q` treated as text while entering a filter |
+
+Search uses the library's matching and ordering. Duplicate identities remain
+ambiguous when opened; selecting a row does not choose a particular duplicate.
+Use a CLI subcommand when piping or redirecting output.
 
 ## Commands
 

@@ -14,6 +14,7 @@ mod packets;
 mod parameters;
 
 pub(super) use commands::command;
+pub(crate) use format::text;
 pub(super) use listings::{candidates, tables};
 pub(super) use packets::packet;
 pub(super) use parameters::parameter;
