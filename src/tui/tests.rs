@@ -481,3 +481,28 @@ fn pus_browser_orders_coordinates_and_opens_definitions_with_return_navigation()
     type_text(&mut app, "3,25");
     assert!(screen(&mut app).contains("89000"));
 }
+
+#[test]
+fn tables_are_selectable_and_unavailable_files_report_errors_in_place() {
+    let dir = Fixture::new();
+    dir.write("pcf.dat", PARAMETER);
+    std::fs::create_dir(dir.path().join("cap.dat")).unwrap();
+    let mib = Mib::load(dir.path()).unwrap();
+    let mut app = tui::App::new(&mib);
+    key(&mut app, KeyCode::Char('t'));
+    assert!(screen(&mut app).contains("> CAF"));
+    key(&mut app, KeyCode::Down);
+    assert!(screen(&mut app).contains("> CAP"));
+    key(&mut app, KeyCode::Enter);
+    assert!(screen(&mut app).contains("cap.dat is unreadable"));
+    key(&mut app, KeyCode::End);
+    assert!(screen(&mut app).contains("> VPD"));
+    key(&mut app, KeyCode::Enter);
+    let text = screen(&mut app);
+    assert!(
+        text.contains("vpd.dat is missing") && text.contains("> VPD"),
+        "{text}"
+    );
+    key(&mut app, KeyCode::Home);
+    assert!(screen(&mut app).contains("> CAF"));
+}

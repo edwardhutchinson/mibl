@@ -5,23 +5,24 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, Paragraph, Tabs},
+    widgets::{Block, Paragraph, Tabs, Wrap},
 };
 
 impl App<'_> {
     pub(crate) fn draw(&mut self, frame: &mut Frame) {
-        let [tabs, heading, body, help] = Layout::vertical([
+        let [tabs, heading, body, notice, help] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Min(1),
+            Constraint::Length(if self.notice.is_some() { 2 } else { 0 }),
             Constraint::Length(3),
         ])
         .areas(frame.area());
         let document_kind = self.document.as_ref().map(|document| &document.kind);
         let scope = match document_kind {
             Some(DocumentKind::Definition(scope)) => Some(*scope),
-            Some(DocumentKind::Tables | DocumentKind::Help) => None,
-            None if self.view == View::Pus
+            Some(DocumentKind::Help) => None,
+            None if self.view != View::Definitions
                 || matches!(self.filter, Filter::Pus { .. } | Filter::PusGroup(_)) =>
             {
                 None
@@ -29,7 +30,7 @@ impl App<'_> {
             None => Some(self.scope),
         };
         let selected = match (document_kind, scope) {
-            (Some(DocumentKind::Tables), _) => Some(3),
+            (None, _) if self.view == View::Tables => Some(3),
             (None, _) if self.view == View::Pus || matches!(self.filter, Filter::PusGroup(_)) => {
                 Some(4)
             }
@@ -65,7 +66,9 @@ impl App<'_> {
             ),
         };
         let status = match document_kind {
-            Some(DocumentKind::Tables) => "Supported-table load reports".into(),
+            None if self.view == View::Tables => {
+                "Supported-table load reports | Enter edit in $EDITOR".into()
+            }
             Some(DocumentKind::Help) => "Keyboard help".into(),
             None if self.view == View::Pus => {
                 "PUS services and subtypes | Enter browse definitions".into()
@@ -85,6 +88,9 @@ impl App<'_> {
         frame.render_widget(block, body);
         if let Some(document) = &mut self.document {
             document.draw(frame, inner);
+        } else if self.view == View::Tables {
+            self.page_height = usize::from(inner.height.saturating_sub(2)).max(1);
+            self.tables.draw(frame, inner);
         } else if self.view == View::Pus {
             self.page_height = usize::from(inner.height.saturating_sub(2)).max(1);
             self.pus.draw(frame, inner);
@@ -100,6 +106,14 @@ impl App<'_> {
         } else {
             self.page_height = usize::from(inner.height.saturating_sub(2)).max(1);
             self.draw_candidates(frame, inner);
+        }
+        if let Some(message) = &self.notice {
+            frame.render_widget(
+                Paragraph::new(crate::render::text(message))
+                    .style(Style::default().fg(Color::Yellow))
+                    .wrap(Wrap { trim: false }),
+                notice,
+            );
         }
         if let Some(input) = &self.input {
             let prompt = match input.kind {

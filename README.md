@@ -46,7 +46,7 @@ CLI subcommands.
 | `/` | Enter a search query; `Enter` applies it, `Esc` cancels |
 | `u` | Browse PUS services and subtypes; Enter opens their definitions |
 | `f` | Enter a PUS service or service,subtype filter |
-| `t` | Supported-table load reports |
+| `t` | Select a supported table; Enter opens its file in `$EDITOR` |
 | `Enter` | Inspect the selected identity |
 | `Esc` | Return to the list |
 | `↑`/`↓`, `j`/`k` | Select entries or scroll a definition |
@@ -59,6 +59,14 @@ CLI subcommands.
 Search uses the library's matching and ordering. Duplicate identities remain
 ambiguous when opened; selecting a row does not choose a particular duplicate.
 Use a CLI subcommand when piping or redirecting output.
+
+In the Tables view, select a row with Up/Down or the paging keys and press Enter
+to edit its source file. Set `EDITOR` to your editor command first. Quoted paths
+and arguments are supported, such as `EDITOR='code --wait'`. The browser waits
+for the editor to exit, then returns to the selected table. Missing or unreadable
+files cannot be opened. Restart `mibl` to reload saved changes into the snapshot;
+table row counts and definition views describe the original session load.
+
 
 ## Commands
 

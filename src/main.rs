@@ -318,7 +318,7 @@ fn run() -> Result<ExitCode, CliError> {
     setup_tracing(configuration.debug && !interactive);
     let mib = Mib::load(&configuration.directory).map_err(CliError::Load)?;
     if interactive {
-        tui::run(&mib).map_err(CliError::Terminal)?;
+        tui::run(&mib, &configuration.directory).map_err(CliError::Terminal)?;
         return Ok(ExitCode::SUCCESS);
     }
     let response = query(&mib, &configuration.request);

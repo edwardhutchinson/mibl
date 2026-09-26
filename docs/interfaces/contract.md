@@ -959,3 +959,28 @@ ranking, filters, table reports, scrolling, Unicode, escaped controls and resize
 Unix pseudo-terminal tests check raw-mode flags and alternate-screen restoration
 on quit, Ctrl-C, returned errors, initialization failure and panic. CLI tests
 cover noninteractive startup, configuration errors and existing compatibility.
+
+
+## TUI follow-up tasks A through D
+
+The follow-up requirements live in `docs/tasks/tui-follow-ups.md`. Definition
+lists now use sticky column headers. Mixed results include Kind; homogeneous
+lists use the active view's kind. Lists retain exact-identity selection.
+
+Definition formatters emit explicit section boundaries and presentation roles.
+The plain CLI adapter writes the existing headings and spacing, while the TUI
+renders bordered sections and colors supplied roles. Section navigation and
+scrolling retain every recorded definition and problem-evidence line.
+
+The PUS tab groups public inventory candidates by service and subtype. Both
+coordinates sort numerically, with unavailable coordinates last. A coordinate's
+candidates retain kind/identity/source ordering and duplicate roots. This is
+presentation grouping, not a new domain lookup or schema interpretation.
+
+The Tables view is selectable. Enter passes its source file as an argument to
+`$EDITOR`, using shell-style quoting to split the configured executable and
+arguments without evaluating shell expansions. The terminal returns to normal
+mode while the process runs and the TUI resumes afterward. Missing configuration,
+unavailable files, launch errors and unsuccessful editor exits are visible.
+Editing and saving belong to the editor. Domain definitions and table reports
+remain the original immutable snapshot until `mibl` restarts.

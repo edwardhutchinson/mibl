@@ -1,8 +1,10 @@
 //! Keyboard navigation over an already loaded immutable MIB snapshot.
 mod candidates;
 mod document;
+mod editor;
 mod pus;
 mod screen;
+mod tables;
 mod terminal;
 #[cfg(test)]
 mod tests;
@@ -20,10 +22,11 @@ enum Filter {
     PusGroup(pus::Coordinates),
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum View {
     Definitions,
     Pus,
+    Tables,
 }
 
 enum InputKind {
@@ -40,6 +43,10 @@ struct Input {
 pub(crate) struct App<'a> {
     mib: &'a Mib,
     view: View,
+    before_tables: View,
+    tables: tables::Browser,
+    pending_editor: Option<Table>,
+    notice: Option<String>,
     pus: pus::Browser,
     scope: SearchScope,
     filter: Filter,
@@ -57,6 +64,10 @@ impl<'a> App<'a> {
         let mut app = Self {
             mib,
             view: View::Definitions,
+            before_tables: View::Definitions,
+            tables: tables::Browser::new(mib),
+            pending_editor: None,
+            notice: None,
             pus: pus::Browser::new(mib),
             scope: SearchScope::Packets,
             filter: Filter::Inventory,
@@ -150,6 +161,7 @@ impl<'a> App<'a> {
         if key.kind == KeyEventKind::Release {
             return Ok(false);
         }
+        self.notice = None;
         if key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(true);
         }
@@ -178,7 +190,13 @@ impl<'a> App<'a> {
                 self.document = None;
             }
             KeyCode::Char('?') => self.document = Some(Document::help()),
-            KeyCode::Char('t') => self.document = Some(Document::tables(self.mib)?),
+            KeyCode::Char('t') => {
+                if self.view != View::Tables {
+                    self.before_tables = self.view;
+                }
+                self.view = View::Tables;
+                self.document = None;
+            }
             KeyCode::Char('1' | 'P') => self.browse(SearchScope::Packets),
             KeyCode::Char('2' | 'p') => self.browse(SearchScope::Parameters),
             KeyCode::Char('3' | 'c' | 'C') => self.browse(SearchScope::Commands),
@@ -193,8 +211,31 @@ impl<'a> App<'a> {
                 _ => SearchScope::Packets,
             }),
             KeyCode::Esc => {
-                if self.document.take().is_none() && matches!(self.filter, Filter::PusGroup(_)) {
-                    self.view = View::Pus;
+                if self.document.take().is_none() {
+                    if self.view == View::Tables {
+                        self.view = self.before_tables;
+                    } else if matches!(self.filter, Filter::PusGroup(_)) {
+                        self.view = View::Pus;
+                    }
+                }
+            }
+            KeyCode::Enter if self.document.is_none() && self.view == View::Tables => {
+                if let Some(report) = self.tables.selected() {
+                    match report.rows {
+                        TableRows::Read { .. } => self.pending_editor = Some(report.table),
+                        TableRows::Missing => {
+                            self.notice = Some(format!(
+                                "{} is missing; no file to edit.",
+                                report.table.file()
+                            ))
+                        }
+                        TableRows::Unreadable => {
+                            self.notice = Some(format!(
+                                "{} is unreadable; cannot open editor.",
+                                report.table.file()
+                            ))
+                        }
+                    }
                 }
             }
             KeyCode::Enter if self.document.is_none() && self.view == View::Pus => {
@@ -215,6 +256,8 @@ impl<'a> App<'a> {
             code => {
                 if let Some(document) = &mut self.document {
                     document.navigate(code, self.page_height);
+                } else if self.view == View::Tables {
+                    self.tables.navigate(code, self.page_height);
                 } else if self.view == View::Pus {
                     self.pus.navigate(code, self.page_height);
                 } else if let Some(index) = self.selection.selected() {
@@ -282,15 +325,32 @@ fn parse_pus(value: &str) -> Option<(u16, Option<u16>)> {
 }
 
 /// The caller loads once, before terminal setup. Resize events simply trigger another draw.
-pub(crate) fn run(mib: &Mib) -> io::Result<()> {
+pub(crate) fn run(mib: &Mib, directory: &std::path::Path) -> io::Result<()> {
     let mut app = App::new(mib);
     terminal::with_terminal(|terminal| {
         loop {
             terminal.draw(|frame| app.draw(frame))?;
-            if let crossterm::event::Event::Key(key) = crossterm::event::read()?
-                && app.handle(key)?
-            {
-                return Ok(());
+            if let crossterm::event::Event::Key(key) = crossterm::event::read()? {
+                if app.handle(key)? {
+                    return Ok(());
+                }
+                if let Some(table) = app.pending_editor.take() {
+                    app.notice = Some(match editor::command(directory, table) {
+                        Err(message) => message,
+                        Ok(mut command) => {
+                            match terminal::suspend(terminal, || command.status())? {
+                                Ok(status) if status.success() => {
+                                    "Editor closed; restart mibl to reload edited definitions."
+                                        .into()
+                                }
+                                Ok(status) => format!(
+                                    "editor exited with {status}; restart mibl to reload any saved changes."
+                                ),
+                                Err(error) => format!("cannot launch editor: {error}"),
+                            }
+                        }
+                    });
+                }
             }
         }
     })

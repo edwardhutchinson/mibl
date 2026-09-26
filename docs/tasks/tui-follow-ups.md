@@ -15,7 +15,7 @@ criteria are the reference for subsequent work without the chat history.
 - [x] A. Sticky column headers for definition lists
 - [x] B. Structured definition inspection
 - [x] C. PUS browsing view
-- [ ] D. Table navigation and editor mode
+- [x] D. Table navigation and editor mode
 
 ## A. Sticky column headers for definition lists
 
@@ -110,7 +110,12 @@ Acceptance criteria:
 - Synthetic process tests verify selected paths, editor invocation and arguments,
   return navigation, failures, and terminal restoration.
 
-Completion record: pending.
+Completion record: Tables now supports row selection and paging. Enter launches
+`$EDITOR` with the selected file, restores normal terminal mode while it runs,
+and resumes the same selection afterward. Synthetic PTY tests cover arguments,
+paths with spaces, repeated editor visits, normal terminal flags, configuration
+and process errors, and source files removed after loading. Screen tests cover
+missing and unreadable tables. Full-suite results follow below.
 
 ## Shared constraints and verification
 
@@ -132,3 +137,14 @@ Clippy checks. Review standards and task acceptance criteria before marking it
 complete. Run the full test suite at the end and record results with the final
 completion update. The branch is intended for a later PR into `main`; this
 request does not ask to publish or merge that PR yet.
+
+Final verification on September 26, 2026: `cargo test --locked --all-targets`
+passed all 186 tests, including seven terminal process tests. Documentation tests,
+`cargo fmt --all -- --check`, and `cargo clippy --all-targets -- -D warnings`
+also passed. Independent spec reviews found no outstanding issues in A through D.
+Independent standards reviews passed for A through C after correcting task B's
+section styling to use explicit presentation roles. Task D's standards reviewer
+hit a usage limit; the primary agent completed that review locally with no findings.
+
+Implementation commits for A, B, and C are `917b79e`, `7f3acd7`, and `51f6126`.
+Task D and this final verification record share the following implementation commit.

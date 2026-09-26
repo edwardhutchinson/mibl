@@ -12,6 +12,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["f
 unicode-width = "0.2.2"
 ratatui = { version = "0.30.2", default-features = false, features = ["crossterm"] }
 crossterm = "0.29"
+shell-words = "1.1.1"
 
 [dev-dependencies]
 libc = "0.2.189"
