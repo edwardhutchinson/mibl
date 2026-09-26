@@ -12,7 +12,7 @@ criteria are the reference for subsequent work without the chat history.
 
 ## Progress
 
-- [ ] A. Sticky column headers for definition lists
+- [x] A. Sticky column headers for definition lists
 - [ ] B. Structured definition inspection
 - [ ] C. PUS browsing view
 - [ ] D. Table navigation and editor mode
@@ -33,7 +33,9 @@ Acceptance criteria:
   ambiguity behavior. Long text and narrow terminals remain usable.
 - Screen tests exercise scrolling with persistent headers and selection.
 
-Completion record: pending.
+Completion record: implemented sticky Ratatui column headers, a Kind column for
+mixed results, and horizontal column navigation. TUI tests, type checking,
+formatting, and strict Clippy pass.
 
 ## B. Structured definition inspection
 
@@ -82,27 +84,24 @@ Completion record: pending.
 Make the Tables view a selectable list. Up/Down and paging move between supported
 tables; Enter opens the selected table in editor mode.
 
-Editor choice: clarification was requested. The proposed default is an editable
-grid inside the TUI with an explicit Save action. Alternatives offered were
-opening the file in `$EDITOR` or a read-only inspector. Record the user's answer
-here before implementation; if no answer arrives during the delay, use the
-embedded editor default. This is a new request beyond #52's read-only scope.
+Editor choice: the user selected opening the source file in `$EDITOR`.
 
-Acceptance criteria for the default embedded editor:
+Acceptance criteria:
 
 - Table selection, paging, Enter, and return navigation work with visible help.
-- Display columns and rows from the selected source table. Preserve source data
-  that domain parsing does not retain, including unknown trailing fields.
-- Support keyboard cell editing, explicit save, and cancellation. Opening a table
-  or navigating away must not silently write changes.
-- Preserve untouched data, including empty and omitted cells and duplicate rows.
-  Report unavailable files and read/write failures clearly.
-- Detect external file changes before overwriting them. Save through a temporary
-  file and replacement so a failed write does not truncate the original.
-- Keep the loaded domain snapshot's lifetime explicit. After saving, tell the
-  user that restarting reloads definitions; do not silently mix snapshot versions.
-- Use synthetic temporary files to verify navigation, editing, save/cancel,
-  preservation, conflicts, and errors. Never modify mission/reference fixtures.
+- Enter launches the configured `$EDITOR` with the selected table's source path.
+  Support editor arguments and paths containing spaces without interpolating the
+  source path into shell code.
+- Restore normal terminal mode before launching the editor, wait for it to exit,
+  then resume the TUI with the selected table retained.
+- Missing or empty `$EDITOR`, unavailable files, launch failures, and unsuccessful
+  editor exits produce clear feedback without leaving the terminal corrupted.
+- Editing and saving are owned by the external editor. The browser never rewrites
+  or normalizes the table file itself.
+- Keep the loaded domain snapshot unchanged and explain that restarting reloads
+  edited definitions.
+- Synthetic process tests verify selected paths, editor invocation and arguments,
+  return navigation, failures, and terminal restoration.
 
 Completion record: pending.
 
@@ -118,8 +117,8 @@ cleanup must continue to work on exit, initialization failure, errors, and panic
 
 The user confirmed these test seams: public library APIs, keyboard actions and
 rendered TUI screens with synthetic fixtures, and CLI/terminal process behavior.
-Editor file I/O can be exercised through the same keyboard and process seams
-against disposable synthetic files.
+External editor invocation can be exercised through the same keyboard and
+process seams against disposable synthetic files.
 
 For each task, run the relevant tests, type checking, formatting, and strict
 Clippy checks. Review standards and task acceptance criteria before marking it

@@ -80,14 +80,16 @@ fn scoped_search_preserves_ranking_and_distinguishes_no_matches_from_unavailable
         text.contains("Search Parameters") && text.contains("3 definitions"),
         "{text}"
     );
-    assert!(text.find("parameter MODE ").unwrap() < text.find("parameter MODE_LONG").unwrap());
+    assert!(text.find("MODE ").unwrap() < text.find("MODE_LONG").unwrap());
     key(&mut app, KeyCode::Enter);
     assert!(screen(&mut app).contains("Parameter MODE"));
     key(&mut app, KeyCode::Esc);
     key(&mut app, KeyCode::Tab);
     assert!(screen(&mut app).contains("Search Commands") && screen(&mut app).contains("SET_STATE"));
     key(&mut app, KeyCode::Tab);
-    assert!(screen(&mut app).contains("Search All") && screen(&mut app).contains("4 definitions"));
+    let mixed = screen(&mut app);
+    assert!(mixed.contains("Search All") && mixed.contains("4 definitions"));
+    assert!(mixed.contains("Kind") && mixed.contains("parameter") && mixed.contains("command"));
     key(&mut app, KeyCode::Char('/'));
     type_text(&mut app, "zzzzqqqq");
     assert!(screen(&mut app).contains("No matching definitions"));
@@ -242,7 +244,12 @@ fn duplicate_selection_never_chooses_one_root_and_long_lists_keep_selection_visi
     key(&mut app, KeyCode::Char('2'));
     screen(&mut app);
     key(&mut app, KeyCode::End);
-    assert!(screen(&mut app).contains("> parameter TEMP"));
+    let listed = screen(&mut app);
+    for header in ["Identity", "Name", "Description", "Source"] {
+        assert!(listed.contains(header), "missing sticky header {header}");
+    }
+    assert!(!listed.contains("parameter TEMP"));
+    assert!(listed.contains("> TEMP"));
     key(&mut app, KeyCode::Enter);
     let text = screen(&mut app);
     assert!(
@@ -252,11 +259,11 @@ fn duplicate_selection_never_chooses_one_root_and_long_lists_keep_selection_visi
     );
     assert!(!text.contains("Parameter TEMP"));
     key(&mut app, KeyCode::Esc);
-    assert!(screen(&mut app).contains("> parameter TEMP"));
+    assert!(screen(&mut app).contains("> TEMP"));
     key(&mut app, KeyCode::Home);
     key(&mut app, KeyCode::PageDown);
     key(&mut app, KeyCode::Enter);
-    assert!(screen(&mut app).contains("Parameter PARAM_023"));
+    assert!(screen(&mut app).contains("Parameter PARAM_021"));
 }
 
 #[test]

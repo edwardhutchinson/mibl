@@ -1,4 +1,5 @@
 //! Keyboard navigation over an already loaded immutable MIB snapshot.
+mod candidates;
 mod document;
 mod screen;
 mod terminal;
@@ -8,7 +9,7 @@ mod tests;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use document::Document;
 use mibl::{Mib, model::*};
-use ratatui::widgets::ListState;
+use ratatui::widgets::TableState;
 use std::io;
 
 enum Filter {
@@ -35,7 +36,8 @@ pub(crate) struct App<'a> {
     input: Option<Input>,
     candidates: Vec<Candidate>,
     roots_available: bool,
-    selection: ListState,
+    selection: TableState,
+    first_column: usize,
     document: Option<Document>,
     page_height: usize,
 }
@@ -49,7 +51,8 @@ impl<'a> App<'a> {
             input: None,
             candidates: Vec::new(),
             roots_available: false,
-            selection: ListState::default(),
+            selection: TableState::default(),
+            first_column: 0,
             document: None,
             page_height: 1,
         };
@@ -79,8 +82,9 @@ impl<'a> App<'a> {
                 }
             };
         self.selection =
-            ListState::default().with_selected((!self.candidates.is_empty()).then_some(0));
+            TableState::default().with_selected((!self.candidates.is_empty()).then_some(0));
         self.document = None;
+        self.first_column = 0;
     }
 
     fn edit(&mut self, code: KeyCode) {
@@ -179,6 +183,17 @@ impl<'a> App<'a> {
                 if let Some(document) = &mut self.document {
                     document.navigate(code, self.page_height);
                 } else if let Some(index) = self.selection.selected() {
+                    match code {
+                        KeyCode::Right | KeyCode::Char('l') => {
+                            self.first_column =
+                                (self.first_column + 1).min(self.candidate_column_count() - 1)
+                        }
+                        KeyCode::Left | KeyCode::Char('h') => {
+                            self.first_column = self.first_column.saturating_sub(1)
+                        }
+                        KeyCode::Home => self.first_column = 0,
+                        _ => {}
+                    }
                     let last = self.candidates.len().saturating_sub(1);
                     let next = vertical_position(code, index, last, self.page_height);
                     self.selection.select(Some(next));

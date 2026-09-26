@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, List, ListItem, Paragraph, Tabs},
+    widgets::{Block, Paragraph, Tabs},
 };
 
 impl App<'_> {
@@ -84,28 +84,8 @@ impl App<'_> {
                 inner,
             );
         } else {
-            let items = self.candidates.iter().map(|c| {
-                let identity = match &c.identity {
-                    Identity::Parameter(n) => format!("parameter {}", n.0),
-                    Identity::Packet(n) => format!("packet {}", n.0),
-                    Identity::Command(n) => format!("command {}", n.0),
-                };
-                ListItem::new(crate::render::text(&format!(
-                    "{} | {} | {} | {}:{}",
-                    identity,
-                    c.name.value.as_deref().unwrap_or("unavailable"),
-                    c.description.value.as_deref().unwrap_or("unavailable"),
-                    c.source.file.display(),
-                    c.source.line
-                )))
-            });
-            frame.render_stateful_widget(
-                List::new(items)
-                    .highlight_symbol("> ")
-                    .highlight_style(Style::default().fg(Color::Yellow)),
-                inner,
-                &mut self.selection,
-            );
+            self.page_height = usize::from(inner.height.saturating_sub(2)).max(1);
+            self.draw_candidates(frame, inner);
         }
         if let Some(input) = &self.input {
             let prompt = match input.kind {
@@ -115,6 +95,6 @@ impl App<'_> {
             frame.render_widget(Paragraph::new(format!("{prompt}: {}\nEnter apply  Esc cancel  Backspace delete  Tab search scope  Ctrl-C quit\n{}", input.value, input.error.unwrap_or(""))), help);
             return;
         }
-        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab scope  / search  f PUS  t tables\nEnter inspect  Esc list  ↑/↓ j/k move  PgUp/PgDn page  Home/End\n←/→ h/l scroll wide text  q / Ctrl-C quit"), help);
+        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab scope  / search  f PUS  t tables\nEnter inspect  Esc list  ↑/↓ j/k move  PgUp/PgDn page  Home/End\n←/→ h/l columns / wide text  q / Ctrl-C quit"), help);
     }
 }
