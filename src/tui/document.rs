@@ -59,25 +59,36 @@ impl Document {
     }
 
     pub fn help() -> Self {
-        Self::from_bytes(b"Keyboard controls\n\nP / 1: packets\np / 2: parameters\nc / C / 3: commands\nTab: next tab or search scope\n/: search, Tab chooses scope\nf: PUS service[,subtype] filter\nu: PUS service/subtype browser\nt: tables; Enter opens $EDITOR\nEnter: inspect selected identity\nEsc: cancel input / return to list\nUp/Down or j/k: select / scroll\nPageUp/PageDown: move one page\nHome/End: first / last page\n[ / ]: previous / next section\nLeft/Right or h/l: scroll wide text\n?: this help\nq: quit outside text input\nCtrl-C: quit from any screen\n".to_vec(), DocumentKind::Help)
-    }
-
-    fn from_bytes(bytes: Vec<u8>, kind: DocumentKind) -> Self {
-        Self {
-            kind,
-            sections: Vec::new(),
-            lines: String::from_utf8(bytes)
-                .expect("formatters write UTF-8")
-                .lines()
-                .map(|s| DisplayLine {
-                    text: s.to_owned(),
-                    style: Style::default(),
-                    kind: LineKind::Plain,
-                })
-                .collect(),
-            top: 0,
-            left: 0,
+        let mut sections = render::Sections::default();
+        for (title, content) in [
+            (
+                "Keyboard controls",
+                "Esc          Return to browsing\n↑/↓ or j/k   Scroll this help\n[ / ]        Previous / next section\n",
+            ),
+            (
+                "Views",
+                "P / 1        Packets\np / 2        Parameters\nc / C / 3    Commands\nu            PUS services / subtypes\nt            Source tables\nTab          Next tab / search scope\n",
+            ),
+            (
+                "Browse and inspect",
+                "↑/↓ or j/k   Select / scroll\nPgUp/PgDn    Move one page\nHome / End   First / last page\n←/→ or h/l   Columns / wide text\nEnter        Open selected item\n             Tables: open $EDITOR\nEsc          Back to previous view\n\nRestart to reload edited files.\n",
+            ),
+            (
+                "Search and filter",
+                "/            Search definitions\nf            Filter by PUS coordinates\n             SERVICE or SERVICE,SUBTYPE\nTab          Change search scope\nEnter        Apply search / filter\nBackspace    Delete last character\nEsc          Cancel input\n",
+            ),
+            (
+                "Help and exit",
+                "?            Show keyboard help\nq            Quit outside text input\nCtrl-C       Quit from any screen\n",
+            ),
+        ] {
+            render::Output::section(&mut sections, title, render::Role::Content)
+                .expect("section storage is in memory");
+            sections
+                .write_all(content.as_bytes())
+                .expect("section storage is in memory");
         }
+        Self::from_sections(sections, DocumentKind::Help)
     }
 
     fn from_sections(sections: render::Sections, kind: DocumentKind) -> Self {
