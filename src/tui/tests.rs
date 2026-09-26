@@ -432,3 +432,52 @@ fn definition_inspection_has_boxed_sections_and_section_navigation() {
             .any(|c| c.fg == ratatui::style::Color::Yellow)
     );
 }
+
+#[test]
+fn pus_browser_orders_coordinates_and_opens_definitions_with_return_navigation() {
+    let dir = Fixture::new();
+    dir.write("pid.dat", "17\t1\t42\t0\t0\t90000\tLast\t\t-1\t10\n3\t26\t42\t0\t0\t89001\tSecond\t\t-1\t10\n3\t25\t42\t0\t0\t89000\tFirst\t\t-1\t10");
+    dir.write("ccf.dat", "DUP\tOne\t\t\tN\tHEADER\t3\t25\nDUP\tTwo\t\t\tN\tHEADER\t3\t26\nUNKNOWN\tNo coordinates\t\t\tN\tHEADER\nNO_SUBTYPE\tNo subtype\t\t\tN\tHEADER\t3");
+    let mib = Mib::load(dir.path()).unwrap();
+    let mut app = tui::App::new(&mib);
+    key(&mut app, KeyCode::Char('u'));
+    let groups = screen(&mut app);
+    assert!(
+        groups.contains("Service") && groups.contains("Subtype") && groups.contains("unavailable")
+    );
+    key(&mut app, KeyCode::Enter);
+    let first = screen(&mut app);
+    assert!(first.contains("PUS 3,25") && first.contains("89000") && first.contains("DUP"));
+    key(&mut app, KeyCode::Enter);
+    assert!(screen(&mut app).contains("Packet 89000"));
+    key(&mut app, KeyCode::Esc);
+    key(&mut app, KeyCode::Down);
+    key(&mut app, KeyCode::Enter);
+    assert!(screen(&mut app).contains("Ambiguous identity"));
+    key(&mut app, KeyCode::Esc);
+    key(&mut app, KeyCode::Esc);
+    assert_eq!(screen(&mut app), groups);
+    key(&mut app, KeyCode::Down);
+    key(&mut app, KeyCode::Enter);
+    assert!(screen(&mut app).contains("PUS 3,26"));
+    key(&mut app, KeyCode::Esc);
+    key(&mut app, KeyCode::Down);
+    key(&mut app, KeyCode::Enter);
+    assert!(
+        screen(&mut app).contains("PUS 3,unavailable") && screen(&mut app).contains("NO_SUBTYPE")
+    );
+    key(&mut app, KeyCode::Esc);
+    key(&mut app, KeyCode::Down);
+    key(&mut app, KeyCode::Enter);
+    assert!(screen(&mut app).contains("PUS 17,1"));
+    key(&mut app, KeyCode::Esc);
+    key(&mut app, KeyCode::End);
+    key(&mut app, KeyCode::Enter);
+    assert!(
+        screen(&mut app).contains("PUS unavailable,unavailable")
+            && screen(&mut app).contains("UNKNOWN")
+    );
+    key(&mut app, KeyCode::Char('f'));
+    type_text(&mut app, "3,25");
+    assert!(screen(&mut app).contains("89000"));
+}

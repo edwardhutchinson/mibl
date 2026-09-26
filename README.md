@@ -44,6 +44,7 @@ CLI subcommands.
 | `P`, `p`, `c`/`C` | Browse packets, parameters, commands; `1`/`2`/`3` also work |
 | `Tab` | Cycle definition lists, or search scopes while searching |
 | `/` | Enter a search query; `Enter` applies it, `Esc` cancels |
+| `u` | Browse PUS services and subtypes; Enter opens their definitions |
 | `f` | Enter a PUS service or service,subtype filter |
 | `t` | Supported-table load reports |
 | `Enter` | Inspect the selected identity |

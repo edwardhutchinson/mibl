@@ -14,7 +14,7 @@ criteria are the reference for subsequent work without the chat history.
 
 - [x] A. Sticky column headers for definition lists
 - [x] B. Structured definition inspection
-- [ ] C. PUS browsing view
+- [x] C. PUS browsing view
 - [ ] D. Table navigation and editor mode
 
 ## A. Sticky column headers for definition lists
@@ -80,7 +80,11 @@ Acceptance criteria:
 - Synthetic tests cover ordering, packet and command results, selection,
   unavailable coordinates, and return navigation.
 
-Completion record: pending.
+Completion record: `u` opens a PUS tab grouped by service and subtype, sorted
+numerically with unavailable coordinates last. Enter opens the group's definitions;
+Esc returns through inspection, results, and groups with selection retained.
+Synthetic screen tests cover ordering, duplicates, missing coordinates, and the
+existing filter. Type checking, formatting, and strict Clippy pass.
 
 ## D. Table navigation and editor mode
 

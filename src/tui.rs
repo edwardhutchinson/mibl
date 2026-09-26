@@ -1,6 +1,7 @@
 //! Keyboard navigation over an already loaded immutable MIB snapshot.
 mod candidates;
 mod document;
+mod pus;
 mod screen;
 mod terminal;
 #[cfg(test)]
@@ -16,6 +17,13 @@ enum Filter {
     Inventory,
     Search(String),
     Pus { service: u16, subtype: Option<u16> },
+    PusGroup(pus::Coordinates),
+}
+
+#[derive(PartialEq, Eq)]
+enum View {
+    Definitions,
+    Pus,
 }
 
 enum InputKind {
@@ -31,6 +39,8 @@ struct Input {
 
 pub(crate) struct App<'a> {
     mib: &'a Mib,
+    view: View,
+    pus: pus::Browser,
     scope: SearchScope,
     filter: Filter,
     input: Option<Input>,
@@ -46,6 +56,8 @@ impl<'a> App<'a> {
     pub(crate) fn new(mib: &'a Mib) -> Self {
         let mut app = Self {
             mib,
+            view: View::Definitions,
+            pus: pus::Browser::new(mib),
             scope: SearchScope::Packets,
             filter: Filter::Inventory,
             input: None,
@@ -67,14 +79,20 @@ impl<'a> App<'a> {
     }
 
     fn refresh(&mut self) {
+        self.view = View::Definitions;
         self.candidates = match &self.filter {
             Filter::Inventory => self.mib.inventory(self.scope),
             Filter::Search(query) => self.mib.search(query, self.scope),
             Filter::Pus { service, subtype } => self.mib.pus(*service, *subtype),
+            Filter::PusGroup(_) => self
+                .pus
+                .selected()
+                .map(|group| group.candidates.clone())
+                .unwrap_or_default(),
         };
         self.roots_available = !self.candidates.is_empty()
             || match self.filter {
-                Filter::Inventory => false,
+                Filter::Inventory | Filter::PusGroup(_) => false,
                 Filter::Search(_) => !self.mib.inventory(self.scope).is_empty(),
                 Filter::Pus { .. } => {
                     !self.mib.inventory(SearchScope::Packets).is_empty()
@@ -155,11 +173,16 @@ impl<'a> App<'a> {
                     error: None,
                 })
             }
+            KeyCode::Char('u') => {
+                self.view = View::Pus;
+                self.document = None;
+            }
             KeyCode::Char('?') => self.document = Some(Document::help()),
             KeyCode::Char('t') => self.document = Some(Document::tables(self.mib)?),
             KeyCode::Char('1' | 'P') => self.browse(SearchScope::Packets),
             KeyCode::Char('2' | 'p') => self.browse(SearchScope::Parameters),
             KeyCode::Char('3' | 'c' | 'C') => self.browse(SearchScope::Commands),
+            KeyCode::Tab if self.view == View::Pus => self.browse(SearchScope::Packets),
             KeyCode::Tab if matches!(self.filter, Filter::Search(_)) => {
                 self.scope = next_scope(self.scope);
                 self.refresh();
@@ -169,7 +192,17 @@ impl<'a> App<'a> {
                 SearchScope::Parameters => SearchScope::Commands,
                 _ => SearchScope::Packets,
             }),
-            KeyCode::Esc => self.document = None,
+            KeyCode::Esc => {
+                if self.document.take().is_none() && matches!(self.filter, Filter::PusGroup(_)) {
+                    self.view = View::Pus;
+                }
+            }
+            KeyCode::Enter if self.document.is_none() && self.view == View::Pus => {
+                if let Some(group) = self.pus.selected() {
+                    self.filter = Filter::PusGroup(group.coordinates);
+                    self.refresh();
+                }
+            }
             KeyCode::Enter if self.document.is_none() => {
                 if let Some(candidate) = self
                     .selection
@@ -182,6 +215,8 @@ impl<'a> App<'a> {
             code => {
                 if let Some(document) = &mut self.document {
                     document.navigate(code, self.page_height);
+                } else if self.view == View::Pus {
+                    self.pus.navigate(code, self.page_height);
                 } else if let Some(index) = self.selection.selected() {
                     match code {
                         KeyCode::Right | KeyCode::Char('l') => {
