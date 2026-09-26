@@ -42,7 +42,7 @@ CLI subcommands.
 | Key | Action |
 | --- | --- |
 | `P`, `p`, `c`/`C` | Browse packets, parameters, commands; `1`/`2`/`3` also work |
-| `Tab` | Cycle definition lists, or search scopes while searching |
+| `Tab` | Cycle Packets → Parameters → Commands → PUS → Tables, or search scopes while searching |
 | `/` | Enter a search query; `Enter` applies it, `Esc` cancels |
 | `u` | Browse PUS services and subtypes; Enter opens their definitions |
 | `f` | Enter a PUS service or service,subtype filter |

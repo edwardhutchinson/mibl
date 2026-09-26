@@ -200,16 +200,26 @@ impl<'a> App<'a> {
             KeyCode::Char('1' | 'P') => self.browse(SearchScope::Packets),
             KeyCode::Char('2' | 'p') => self.browse(SearchScope::Parameters),
             KeyCode::Char('3' | 'c' | 'C') => self.browse(SearchScope::Commands),
-            KeyCode::Tab if self.view == View::Pus => self.browse(SearchScope::Packets),
+            KeyCode::Tab if self.view == View::Tables => self.browse(SearchScope::Packets),
+            KeyCode::Tab
+                if self.view == View::Pus || matches!(self.filter, Filter::PusGroup(_)) =>
+            {
+                self.before_tables = self.view;
+                self.view = View::Tables;
+                self.document = None;
+            }
             KeyCode::Tab if matches!(self.filter, Filter::Search(_)) => {
                 self.scope = next_scope(self.scope);
                 self.refresh();
             }
-            KeyCode::Tab => self.browse(match self.scope {
-                SearchScope::Packets => SearchScope::Parameters,
-                SearchScope::Parameters => SearchScope::Commands,
-                _ => SearchScope::Packets,
-            }),
+            KeyCode::Tab => match self.scope {
+                SearchScope::Packets => self.browse(SearchScope::Parameters),
+                SearchScope::Parameters => self.browse(SearchScope::Commands),
+                SearchScope::Commands | SearchScope::All => {
+                    self.view = View::Pus;
+                    self.document = None;
+                }
+            },
             KeyCode::Esc => {
                 if self.document.take().is_none() {
                     if self.view == View::Tables {

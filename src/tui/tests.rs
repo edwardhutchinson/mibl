@@ -383,6 +383,16 @@ fn top_tabs_identify_lists_definitions_and_table_reports() {
             .to_owned()
     };
     assert_eq!(active_tab(&mut app), "P Packets");
+    for expected in [
+        "p Parameters",
+        "c Commands",
+        "u PUS",
+        "t Tables",
+        "P Packets",
+    ] {
+        key(&mut app, KeyCode::Tab);
+        assert_eq!(active_tab(&mut app), expected);
+    }
     key(&mut app, KeyCode::Char('p'));
     assert_eq!(active_tab(&mut app), "p Parameters");
     key(&mut app, KeyCode::Enter);

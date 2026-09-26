@@ -49,9 +49,9 @@ impl App<'_> {
             None => Some(self.scope),
         };
         let selected = match (document_kind, scope) {
-            (None, _) if self.view == View::Tables => Some(3),
+            (None, _) if self.view == View::Tables => Some(4),
             (None, _) if self.view == View::Pus || matches!(self.filter, Filter::PusGroup(_)) => {
-                Some(4)
+                Some(3)
             }
             (_, Some(SearchScope::Packets)) => Some(0),
             (_, Some(SearchScope::Parameters)) => Some(1),
@@ -63,8 +63,8 @@ impl App<'_> {
                 "P Packets",
                 "p Parameters",
                 "c Commands",
-                "t Tables",
                 "u PUS",
+                "t Tables",
             ])
             .select(selected)
             .divider("  ")
@@ -149,6 +149,6 @@ impl App<'_> {
             frame.render_widget(Paragraph::new(format!("{prompt}: {}\nEnter apply  Esc cancel  Backspace delete  Tab search scope  Ctrl-C quit\n{}", input.value, input.error.unwrap_or(""))), help);
             return;
         }
-        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab scope  / search  f filter  t tables  u PUS\nEnter open  Esc back  ↑/↓ j/k move  PgUp/PgDn page  Home/End  [/] sections\n←/→ h/l columns / wide text  q / Ctrl-C quit"), help);
+        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab next  / search  f filter  t tables  u PUS\nEnter open  Esc back  ↑/↓ j/k move  PgUp/PgDn page  Home/End  [/] sections\n←/→ h/l columns / wide text  q / Ctrl-C quit"), help);
     }
 }
