@@ -1,6 +1,7 @@
 //! The command view: the command's own summary, its application-data arguments with their
 //! declared rules, and the expanded packet header.
 
+use super::sections::Role;
 use mibl::model::*;
 use std::io::{self, Write};
 
@@ -18,6 +19,15 @@ pub(crate) fn command(
     details: bool,
     out: &mut dyn Write,
 ) -> io::Result<()> {
+    command_sections(c, details, &mut super::sections::Plain(out))
+}
+
+pub(crate) fn command_sections(
+    c: &CommandDescription,
+    details: bool,
+    out: &mut dyn super::sections::Output,
+) -> io::Result<()> {
+    out.section("Summary", Role::Summary)?;
     let mut view = View::default();
     view.definition(&c.definition, "Command");
     view.info(&c.description, "Command description");
@@ -29,7 +39,7 @@ pub(crate) fn command(
         source(&c.definition.source)
     )?;
     view.info(&c.arguments, "Application data");
-    writeln!(out, "\nApplication data")?;
+    out.section("Application data", Role::availability(&c.arguments.value))?;
     let mut rules = Vec::new();
     if let Some(layout) = &c.arguments.value {
         let mut rows = vec![vec![
@@ -56,7 +66,7 @@ pub(crate) fn command(
     } else {
         writeln!(out, "unavailable")?;
     }
-    writeln!(out, "\nArgument rules")?;
+    out.section("Argument rules", Role::availability(&c.arguments.value))?;
     if c.arguments.value.is_none() {
         // An unavailable layout is not a command that declares no rules.
         writeln!(out, "unavailable")?;
@@ -77,9 +87,9 @@ pub(crate) fn command(
 fn command_header(
     header: &Info<CommandHeader>,
     view: &mut View,
-    out: &mut dyn Write,
+    out: &mut dyn super::sections::Output,
 ) -> io::Result<()> {
-    writeln!(out, "\nHeader")?;
+    out.section("Header", Role::availability(&header.value))?;
     let ids = view.info(header, "Header");
     let Some(header) = &header.value else {
         return writeln!(out, "unavailable{}", markers(&ids));

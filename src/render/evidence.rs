@@ -4,8 +4,9 @@
 //! reports definitions and problems uses exactly one view, so definition ids, problem ids,
 //! deduplication, contexts and evidence order stay stable across a result.
 
+use super::sections::Role;
 use mibl::model::*;
-use std::io::{self, Write};
+use std::io;
 
 use super::{
     calibrations::calibration_lines,
@@ -333,8 +334,19 @@ impl View {
         }
     }
 
-    pub(super) fn finish(&self, details: bool, out: &mut dyn Write) -> io::Result<()> {
-        writeln!(out, "\nProblems")?;
+    pub(super) fn finish(
+        &self,
+        details: bool,
+        out: &mut dyn super::sections::Output,
+    ) -> io::Result<()> {
+        out.section(
+            "Problems",
+            if self.problems.is_empty() {
+                Role::Content
+            } else {
+                Role::Problem
+            },
+        )?;
         if self.problems.is_empty() {
             writeln!(out, "none")?;
         }
@@ -364,7 +376,14 @@ impl View {
                 "Use --details for recorded fields and problem evidence."
             );
         }
-        writeln!(out, "\nProblem evidence")?;
+        out.section(
+            "Problem evidence",
+            if self.problems.is_empty() {
+                Role::Content
+            } else {
+                Role::Problem
+            },
+        )?;
         if self.problems.is_empty() {
             writeln!(out, "none")?;
         }
@@ -383,7 +402,7 @@ impl View {
                 }
             }
         }
-        writeln!(out, "\nDefinitions")?;
+        out.section("Definitions", Role::Reference)?;
         for line in &self.declarations {
             writeln!(out, "  {line}")?;
         }

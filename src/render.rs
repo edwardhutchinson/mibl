@@ -12,12 +12,17 @@ mod format;
 mod listings;
 mod packets;
 mod parameters;
+mod sections;
 
 pub(super) use commands::command;
+pub(crate) use commands::command_sections;
 pub(crate) use format::text;
 pub(super) use listings::{candidates, tables};
 pub(super) use packets::packet;
+pub(crate) use packets::packet_sections;
 pub(super) use parameters::parameter;
+pub(crate) use parameters::parameter_sections;
+pub(crate) use sections::{Output, Role, Sections};
 
 #[cfg(test)]
 mod tests;

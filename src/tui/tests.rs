@@ -402,3 +402,33 @@ fn top_tabs_identify_lists_definitions_and_table_reports() {
     key(&mut app, KeyCode::Enter);
     assert_eq!(active_tab(&mut app), "p Parameters");
 }
+
+#[test]
+fn definition_inspection_has_boxed_sections_and_section_navigation() {
+    let dir = crate::workflow_fixture::combined();
+    let mib = Mib::load(dir.path()).unwrap();
+    let mut app = tui::App::new(&mib);
+    key(&mut app, KeyCode::Enter);
+    let first = screen(&mut app);
+    assert!(first.contains("╭─ Summary"), "{first}");
+    assert!(first.contains("╭─ Identification"));
+    key(&mut app, KeyCode::Char(']'));
+    let next = screen(&mut app);
+    assert!(next.contains("╭─ Identification"));
+    assert!(!next.contains("Packet 89000  DEMO_HK"));
+    key(&mut app, KeyCode::Char('['));
+    assert!(screen(&mut app).contains("Packet 89000  DEMO_HK"));
+    for _ in 0..3 {
+        key(&mut app, KeyCode::Char(']'));
+    }
+    let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+    terminal.draw(|frame| app.draw(frame)).unwrap();
+    assert!(
+        terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .any(|c| c.fg == ratatui::style::Color::Yellow)
+    );
+}

@@ -13,7 +13,7 @@ criteria are the reference for subsequent work without the chat history.
 ## Progress
 
 - [x] A. Sticky column headers for definition lists
-- [ ] B. Structured definition inspection
+- [x] B. Structured definition inspection
 - [ ] C. PUS browsing view
 - [ ] D. Table navigation and editor mode
 
@@ -58,7 +58,10 @@ Acceptance criteria:
 - Synthetic screen tests cover packet, parameter, and command views, problematic
   definitions, and access to complete evidence.
 
-Completion record: pending.
+Completion record: definition views now have bordered sections, colored headings,
+problem and unavailable-value highlighting, and `[` / `]` section navigation.
+Shared section boundaries retain complete details without parsing CLI output.
+TUI tests and CLI compatibility tests pass, as do type checking and strict Clippy.
 
 ## C. PUS browsing view
 

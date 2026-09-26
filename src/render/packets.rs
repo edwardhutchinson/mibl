@@ -1,6 +1,7 @@
 //! The packet view: identification criteria and the flattened layout of the packet's parameter
 //! occurrences, including declared repetition and condition groups.
 
+use super::sections::Role;
 use mibl::model::*;
 use std::{
     collections::BTreeMap,
@@ -16,6 +17,15 @@ use super::{
 };
 
 pub(crate) fn packet(p: &PacketDescription, details: bool, out: &mut dyn Write) -> io::Result<()> {
+    packet_sections(p, details, &mut super::sections::Plain(out))
+}
+
+pub(crate) fn packet_sections(
+    p: &PacketDescription,
+    details: bool,
+    out: &mut dyn super::sections::Output,
+) -> io::Result<()> {
+    out.section("Summary", Role::Summary)?;
     let mut view = View::default();
     view.packet(&p.packet, "Packet");
     writeln!(
@@ -33,9 +43,10 @@ pub(crate) fn packet(p: &PacketDescription, details: bool, out: &mut dyn Write) 
     view.info(&i.apid, "APID");
     view.info(&i.service_type, "Service type");
     view.info(&i.service_subtype, "Service subtype");
+    out.section("Identification", Role::Content)?;
     writeln!(
         out,
-        "\nIdentification\nAPID: {}{}\nService: type {}{}, subtype {}{}",
+        "APID: {}{}\nService: type {}{}, subtype {}{}",
         number(&i.apid),
         default_suffix(&p.packet.definition, "PID_APID"),
         number(&i.service_type),
@@ -68,7 +79,7 @@ pub(crate) fn packet(p: &PacketDescription, details: bool, out: &mut dyn Write) 
         }
         None => writeln!(out, "Additional criteria: unavailable")?,
     }
-    writeln!(out, "\nLayout")?;
+    out.section("Layout", Role::availability(&p.layout.value))?;
     view.info(&p.layout, "Layout");
     let mut occurrences = Vec::new();
     let mut rows = vec![vec![

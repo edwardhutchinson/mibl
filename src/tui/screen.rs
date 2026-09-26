@@ -55,25 +55,19 @@ impl App<'_> {
             Some(DocumentKind::Help) => "Keyboard help".into(),
             _ => format!("mibl | {title} | {} definitions", self.candidates.len()),
         };
+        let status =
+            if let Some(section) = self.document.as_ref().and_then(|doc| doc.current_section()) {
+                format!("{status} | {section}  [/] sections")
+            } else {
+                status
+            };
         frame.render_widget(Paragraph::new(status), heading);
         let block = Block::bordered();
         let inner = block.inner(body);
         self.page_height = usize::from(inner.height).max(1);
         frame.render_widget(block, body);
         if let Some(document) = &mut self.document {
-            document.top = document
-                .top
-                .min(document.lines.len().saturating_sub(self.page_height));
-            let lines = document
-                .lines
-                .iter()
-                .skip(document.top)
-                .take(self.page_height)
-                .map(|s| {
-                    ratatui::text::Line::raw(s.chars().skip(document.left).collect::<String>())
-                })
-                .collect::<Vec<_>>();
-            frame.render_widget(Paragraph::new(lines), inner);
+            document.draw(frame, inner);
         } else if self.candidates.is_empty() {
             frame.render_widget(
                 Paragraph::new(if self.roots_available {
@@ -95,6 +89,6 @@ impl App<'_> {
             frame.render_widget(Paragraph::new(format!("{prompt}: {}\nEnter apply  Esc cancel  Backspace delete  Tab search scope  Ctrl-C quit\n{}", input.value, input.error.unwrap_or(""))), help);
             return;
         }
-        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab scope  / search  f PUS  t tables\nEnter inspect  Esc list  ↑/↓ j/k move  PgUp/PgDn page  Home/End\n←/→ h/l columns / wide text  q / Ctrl-C quit"), help);
+        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab scope  / search  f PUS  t tables\nEnter inspect  Esc list  ↑/↓ j/k move  PgUp/PgDn page  Home/End  [/] sections\n←/→ h/l columns / wide text  q / Ctrl-C quit"), help);
     }
 }

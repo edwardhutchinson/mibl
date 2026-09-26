@@ -50,7 +50,8 @@ CLI subcommands.
 | `Esc` | Return to the list |
 | `↑`/`↓`, `j`/`k` | Select entries or scroll a definition |
 | `PageUp`/`PageDown`, `Home`/`End` | Move through long lists and definitions |
-| `←`/`→`, `h`/`l` | Scroll wide definition tables horizontally |
+| `←`/`→`, `h`/`l` | Reveal later list columns or scroll wide definition text |
+| `[`, `]` | Jump to the previous or next definition section |
 | `?` | Scrollable keyboard help |
 | `q`, `Ctrl-C` | Quit, with `q` treated as text while entering a filter |
 
