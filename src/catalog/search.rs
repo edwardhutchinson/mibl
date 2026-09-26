@@ -8,6 +8,41 @@ use nucleo_matcher::{
 };
 
 impl Catalog {
+    fn candidates(&self, scope: SearchScope) -> impl Iterator<Item = Candidate> + '_ {
+        let parameters = self
+            .records
+            .pcf
+            .rows()
+            .iter()
+            .filter(move |_| matches!(scope, SearchScope::Parameters | SearchScope::All))
+            .map(parameter_candidate);
+        let packets = self
+            .records
+            .pid
+            .rows()
+            .iter()
+            .filter(move |_| matches!(scope, SearchScope::Packets | SearchScope::All))
+            .map(|row| self.packet_candidate(row));
+        let commands = self
+            .records
+            .ccf
+            .rows()
+            .iter()
+            .filter(move |_| matches!(scope, SearchScope::Commands | SearchScope::All))
+            .map(command_candidate);
+        parameters.chain(packets).chain(commands)
+    }
+
+    pub(crate) fn inventory(&self, scope: SearchScope) -> Vec<Candidate> {
+        let mut candidates: Vec<_> = self.candidates(scope).collect();
+        candidates.sort_by(|a, b| {
+            a.identity
+                .cmp(&b.identity)
+                .then_with(|| a.source.cmp(&b.source))
+        });
+        candidates
+    }
+
     pub(crate) fn search(&self, query: &str, scope: SearchScope) -> Vec<Candidate> {
         let query = query.trim();
         if query.is_empty() {
@@ -23,30 +58,8 @@ impl Catalog {
         let mut matcher = Matcher::default();
         let mut buffer = Vec::new();
         let mut score = |text: &str| pattern.score(Utf32Str::new(text, &mut buffer), &mut matcher);
-        let parameters = self
-            .records
-            .pcf
-            .rows()
-            .iter()
-            .filter(|_| matches!(scope, SearchScope::Parameters | SearchScope::All))
-            .map(parameter_candidate);
-        let packets = self
-            .records
-            .pid
-            .rows()
-            .iter()
-            .filter(|_| matches!(scope, SearchScope::Packets | SearchScope::All))
-            .map(|row| self.packet_candidate(row));
-        let commands = self
-            .records
-            .ccf
-            .rows()
-            .iter()
-            .filter(|_| matches!(scope, SearchScope::Commands | SearchScope::All))
-            .map(command_candidate);
-        let mut matches: Vec<_> = parameters
-            .chain(packets)
-            .chain(commands)
+        let mut matches: Vec<_> = self
+            .candidates(scope)
             .filter_map(|candidate| {
                 let identity = match &candidate.identity {
                     Identity::Parameter(name) => name.0.clone(),

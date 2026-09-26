@@ -927,3 +927,60 @@ into. `cargo check --examples`, `cargo clippy --all-targets -- -D warnings` and
 formatting difference to report separately. The refactor changes no rendering,
 exit status, ownership or ordering, so the sample-MIB comparisons recorded above
 still stand. Every fixture is synthetic; no supplied reference row was published.
+
+## Issue #52 terminal browser and inventory
+
+Bare `mibl` now opens a Ratatui browser using `MIB_DIR`. Configuration errors
+remain status 2. With a configured directory, noninteractive stdin or stdout
+requires a CLI subcommand. Loading completes before terminal setup, and the
+browser retains that one immutable snapshot until exit. Existing subcommand
+rendering, flags and exit codes are unchanged. The browser always includes
+recorded details; tracing stays off in the browser to avoid writing diagnostics
+over its screen.
+
+`Mib::inventory(SearchScope)` returns every retained root in scope, including
+duplicates, ordered by kind, identity with numeric SPIDs, then source. It shares
+candidate construction with search; blank search still returns no candidates.
+An empty inventory means no usable roots of those kinds. Selection uses the
+candidate's exact identity through the existing lookup operations and never
+selects a particular duplicate root.
+
+The browser calls public `Mib` queries for inventory, scoped search, PUS filtering,
+exact lookup and supported-table reports. It uses the shared definition
+formatters directly for complete views, without invoking CLI dispatch or parsing
+text into domain information. Screen rendering and keyboard state live separately
+from terminal ownership. Definitions scroll vertically and horizontally without
+a 16-bit line-offset limit. Search and PUS filters retain library ordering;
+empty results distinguish unavailable root definitions from no matches.
+
+Synthetic screen tests cover selection, ambiguity, all twenty-five supported
+source tables, full recorded details and problem evidence, search scopes and
+ranking, filters, table reports, scrolling, Unicode, escaped controls and resize.
+Unix pseudo-terminal tests check raw-mode flags and alternate-screen restoration
+on quit, Ctrl-C, returned errors, initialization failure and panic. CLI tests
+cover noninteractive startup, configuration errors and existing compatibility.
+
+
+## TUI follow-up tasks A through D
+
+The follow-up requirements live in `docs/tasks/tui-follow-ups.md`. Definition
+lists now use sticky column headers. Mixed results include Kind; homogeneous
+lists use the active view's kind. Lists retain exact-identity selection.
+
+Definition formatters emit explicit section boundaries and presentation roles.
+The plain CLI adapter writes the existing headings and spacing, while the TUI
+renders bordered sections and colors supplied roles. Section navigation and
+scrolling retain every recorded definition and problem-evidence line.
+
+The PUS tab groups public inventory candidates by service and subtype. Both
+coordinates sort numerically, with unavailable coordinates last. A coordinate's
+candidates retain kind/identity/source ordering and duplicate roots. This is
+presentation grouping, not a new domain lookup or schema interpretation.
+
+The Tables view is selectable. Enter passes its source file as an argument to
+`$EDITOR`, using shell-style quoting to split the configured executable and
+arguments without evaluating shell expansions. The terminal returns to normal
+mode while the process runs and the TUI resumes afterward. Missing configuration,
+unavailable files, launch errors and unsuccessful editor exits are visible.
+Editing and saving belong to the editor. Domain definitions and table reports
+remain the original immutable snapshot until `mibl` restarts.

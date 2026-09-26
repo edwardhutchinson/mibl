@@ -1,6 +1,7 @@
 //! The parameter view: the parameter's own summary, the packets that contain it and where it
 //! occurs in each, and its declared calibration alternatives.
 
+use super::sections::Role;
 use mibl::model::*;
 use std::{
     collections::BTreeMap,
@@ -21,17 +22,23 @@ pub(crate) fn parameter(
     details: bool,
     out: &mut dyn Write,
 ) -> io::Result<()> {
+    parameter_sections(p, details, &mut super::sections::Plain(out))
+}
+
+pub(crate) fn parameter_sections(
+    p: &ParameterDescription,
+    details: bool,
+    out: &mut dyn super::sections::Output,
+) -> io::Result<()> {
+    out.section("Summary", Role::Summary)?;
     let mut view = View::default();
     view.parameter(&p.parameter, "Parameter");
     writeln!(out, "Parameter {}", text(&p.parameter.name.0))?;
     for line in parameter_summary(&p.parameter) {
         writeln!(out, "{line}")?;
     }
-    writeln!(
-        out,
-        "Source: {}\n\nPackets",
-        source(&p.parameter.definition.source)
-    )?;
+    writeln!(out, "Source: {}", source(&p.parameter.definition.source))?;
+    out.section("Packets", Role::availability(&p.occurrences.value))?;
     view.info(&p.occurrences, "Packets");
     let mut rows = vec![vec![
         "SPID".into(),
@@ -85,7 +92,10 @@ pub(crate) fn parameter(
     } else {
         writeln!(out, "unavailable")?;
     }
-    writeln!(out, "\nCalibrations")?;
+    out.section(
+        "Calibrations",
+        Role::availability(&p.parameter.calibrations.value),
+    )?;
     match &p.parameter.calibrations.value {
         Some(alternatives) if alternatives.is_empty() => writeln!(out, "none declared")?,
         Some(alternatives) => {

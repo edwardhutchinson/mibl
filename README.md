@@ -1,6 +1,6 @@
 # mibl
 
-A read-only Rust library and CLI for exploring SCOS-2000 Mission Information Bases
+A read-only Rust library, CLI, and terminal browser for exploring SCOS-2000 Mission Information Bases
 (MIBs), the definitions used to interpret spacecraft telemetry and describe commands.
 
 - Inspect monitoring parameters, calibrations, and fixed or variable telemetry layouts.
@@ -17,6 +17,7 @@ With Rust installed, run from this repository and point `MIB_DIR` at your MIB di
 
 ```sh
 export MIB_DIR=/path/to/mib
+cargo run
 cargo run -- packet 89000
 cargo run -- parameter TEMP
 cargo run -- command DEMO_TC
@@ -29,6 +30,43 @@ cargo run -- --debug parameter TEMP
 Replace the example names and packet SPID with identities from your MIB.
 Output defaults to a compact overview. Add `--details` for recorded fields and
 source evidence, or `--debug` for diagnostics. Run `cargo run -- --help` for options.
+
+## Terminal browser
+
+Run `mibl` without a subcommand in an interactive terminal. It loads `MIB_DIR`
+once; restart to reload changes. Definitions always include recorded fields and
+problem evidence. The top tabs highlight the displayed definition kind or table
+reports. Use `P`, `p`, `c` or `C`, or `t` to switch views. `--debug` diagnostics apply to
+CLI subcommands.
+
+| Key | Action |
+| --- | --- |
+| `P`, `p`, `c`/`C` | Browse packets, parameters, commands; `1`/`2`/`3` also work |
+| `Tab` | Cycle Packets → Parameters → Commands → PUS → Tables, or search scopes while searching |
+| `/` | Enter a search query; `Enter` applies it, `Esc` cancels |
+| `u` | Browse PUS services and subtypes; Enter opens their definitions |
+| `f` | Enter a PUS service or service,subtype filter |
+| `t` | Select a supported table; Enter opens its file in `$EDITOR` |
+| `Enter` | Inspect the selected identity |
+| `Esc` | Return to the list |
+| `↑`/`↓`, `j`/`k` | Select entries or scroll a definition |
+| `PageUp`/`PageDown`, `Home`/`End` | Move through long lists and definitions |
+| `←`/`→`, `h`/`l` | Reveal later list columns or scroll wide definition text |
+| `[`, `]` | Jump to the previous or next definition section |
+| `?` | Scrollable keyboard help |
+| `q`, `Ctrl-C` | Quit, with `q` treated as text while entering a filter |
+
+Search uses the library's matching and ordering. Duplicate identities remain
+ambiguous when opened; selecting a row does not choose a particular duplicate.
+Use a CLI subcommand when piping or redirecting output.
+
+In the Tables view, select a row with Up/Down or the paging keys and press Enter
+to edit its source file. Set `EDITOR` to your editor command first. Quoted paths
+and arguments are supported, such as `EDITOR='code --wait'`. The browser waits
+for the editor to exit, then returns to the selected table. Missing or unreadable
+files cannot be opened. Restart `mibl` to reload saved changes into the snapshot;
+table row counts and definition views describe the original session load.
+
 
 ## Commands
 
