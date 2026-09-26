@@ -29,7 +29,8 @@ fn browse_and_open_complete_definitions_with_keyboard() {
     let mib = Mib::load(dir.path()).unwrap();
     let mut app = tui::App::new(&mib);
     let initial = screen(&mut app);
-    assert!(initial.contains("89000") && initial.contains("Enter") && initial.contains("quit"));
+    assert!(initial.contains("89000") && initial.contains("? help"));
+    assert!(!initial.contains("Enter open") && !initial.contains("Ctrl-C quit"));
     key(&mut app, KeyCode::Char('2'));
     assert!(screen(&mut app).contains("TEMP"));
     key(&mut app, KeyCode::Enter);
@@ -263,7 +264,7 @@ fn duplicate_selection_never_chooses_one_root_and_long_lists_keep_selection_visi
     key(&mut app, KeyCode::Home);
     key(&mut app, KeyCode::PageDown);
     key(&mut app, KeyCode::Enter);
-    assert!(screen(&mut app).contains("Parameter PARAM_019"));
+    assert!(screen(&mut app).contains("Parameter PARAM_021"));
 }
 
 #[test]

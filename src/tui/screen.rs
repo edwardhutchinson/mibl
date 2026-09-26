@@ -16,7 +16,7 @@ impl App<'_> {
             Constraint::Length(if compact { 2 } else { 4 }),
             Constraint::Min(1),
             Constraint::Length(if self.notice.is_some() { 2 } else { 0 }),
-            Constraint::Length(3),
+            Constraint::Length(if self.input.is_some() { 3 } else { 1 }),
         ])
         .areas(frame.area());
         let header_inner = if compact {
@@ -149,6 +149,9 @@ impl App<'_> {
             frame.render_widget(Paragraph::new(format!("{prompt}: {}\nEnter apply  Esc cancel  Backspace delete  Tab search scope  Ctrl-C quit\n{}", input.value, input.error.unwrap_or(""))), help);
             return;
         }
-        frame.render_widget(Paragraph::new("? help  P packets  p parameters  c/C commands  Tab next  / search  f filter  t tables  u PUS\nEnter open  Esc back  ↑/↓ j/k move  PgUp/PgDn page  Home/End  [/] sections\n←/→ h/l columns / wide text  q / Ctrl-C quit"), help);
+        frame.render_widget(
+            Paragraph::new("? help").style(Style::default().fg(Color::Cyan)),
+            help,
+        );
     }
 }
