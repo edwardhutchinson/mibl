@@ -5,19 +5,38 @@ use ratatui::{
     Frame,
     layout::{Constraint, Layout},
     style::{Color, Modifier, Style},
-    widgets::{Block, Paragraph, Tabs, Wrap},
+    widgets::{Block, BorderType, Paragraph, Tabs, Wrap},
 };
 
 impl App<'_> {
     pub(crate) fn draw(&mut self, frame: &mut Frame) {
-        let [tabs, heading, body, notice, help] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Length(1),
+        // Keep short terminals useful without spending extra rows on decoration.
+        let compact = frame.area().height < 16;
+        let [header, body, notice, help] = Layout::vertical([
+            Constraint::Length(if compact { 2 } else { 4 }),
             Constraint::Min(1),
             Constraint::Length(if self.notice.is_some() { 2 } else { 0 }),
             Constraint::Length(3),
         ])
         .areas(frame.area());
+        let header_inner = if compact {
+            header
+        } else {
+            let block = Block::bordered()
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title("─ mibl ")
+                .title_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                );
+            let inner = block.inner(header);
+            frame.render_widget(block, header);
+            inner
+        };
+        let [tabs, heading] =
+            Layout::vertical([Constraint::Length(1), Constraint::Length(1)]).areas(header_inner);
         let document_kind = self.document.as_ref().map(|document| &document.kind);
         let scope = match document_kind {
             Some(DocumentKind::Definition(scope)) => Some(*scope),
@@ -48,6 +67,8 @@ impl App<'_> {
                 "u PUS",
             ])
             .select(selected)
+            .divider("  ")
+            .style(Style::default().fg(Color::Gray))
             .highlight_style(
                 Style::default()
                     .fg(Color::Black)
@@ -73,7 +94,7 @@ impl App<'_> {
             None if self.view == View::Pus => {
                 "PUS services and subtypes | Enter browse definitions".into()
             }
-            _ => format!("mibl | {title} | {} definitions", self.candidates.len()),
+            _ => format!("{title} | {} definitions", self.candidates.len()),
         };
         let status =
             if let Some(section) = self.document.as_ref().and_then(|doc| doc.current_section()) {
@@ -81,8 +102,13 @@ impl App<'_> {
             } else {
                 status
             };
-        frame.render_widget(Paragraph::new(status), heading);
-        let block = Block::bordered();
+        frame.render_widget(
+            Paragraph::new(format!(" {status}")).style(Style::default().fg(Color::Cyan)),
+            heading,
+        );
+        let block = Block::bordered()
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::DarkGray));
         let inner = block.inner(body);
         self.page_height = usize::from(inner.height).max(1);
         frame.render_widget(block, body);

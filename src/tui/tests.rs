@@ -263,7 +263,7 @@ fn duplicate_selection_never_chooses_one_root_and_long_lists_keep_selection_visi
     key(&mut app, KeyCode::Home);
     key(&mut app, KeyCode::PageDown);
     key(&mut app, KeyCode::Enter);
-    assert!(screen(&mut app).contains("Parameter PARAM_021"));
+    assert!(screen(&mut app).contains("Parameter PARAM_019"));
 }
 
 #[test]
@@ -367,7 +367,10 @@ fn top_tabs_identify_lists_definitions_and_table_reports() {
     let active_tab = |app: &mut tui::App<'_>| {
         let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
         terminal.draw(|frame| app.draw(frame)).unwrap();
-        let row = &terminal.backend().buffer().content[..120];
+        let header = &terminal.backend().buffer().content[..480];
+        let text: String = header.iter().map(|cell| cell.symbol()).collect();
+        assert!(text.contains("╭─ mibl"), "{text}");
+        let row = &terminal.backend().buffer().content[120..240];
         let labels: String = row.iter().map(|cell| cell.symbol()).collect();
         for label in ["Packets", "Parameters", "Commands", "Tables"] {
             assert!(labels.contains(label), "missing {label} in {labels}");
